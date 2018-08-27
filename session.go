@@ -1,0 +1,94 @@
+package auth
+
+import (
+	"crypto/rand"
+	"math/big"
+	"time"
+)
+
+const sessionKeyLength = 1 << 7
+
+var expiryDelay = 2 * time.Hour
+
+// The Session cookie store
+type Session [sessionKeyLength]byte
+
+// AllSessions stores each valid token
+var AllSessions []Session
+
+var nullSession Session
+
+func init() {
+	AllSessions = make([]Session, 0)
+}
+
+// HasSession returns true if the given token was found in AllSessions
+func HasSession(token string) bool {
+	if len(token) != sessionKeyLength {
+		return false
+	}
+	var t Session
+	copy(t[:], []byte(token))
+	return hasSession(t)
+}
+
+func hasSession(token Session) bool {
+	if token == nullSession {
+		return false
+	}
+	for _, session := range AllSessions {
+		if session == token {
+			return true
+		}
+	}
+	return false
+}
+
+func expire(token Session) {
+	go func() {
+		time.Sleep(expiryDelay)
+		deleteToken(token)
+	}()
+}
+
+func deleteToken(token Session) {
+	for index, sess := range AllSessions {
+		if token == sess {
+			AllSessions[index] = nullSession
+		}
+	}
+}
+
+// SetExpiryDelay changes the delay for session expiry from the default of 2 hours
+func SetExpiryDelay(dTime time.Duration) {
+	expiryDelay = dTime
+}
+
+// NewSession returns a new random token.
+func NewSession() (string, error) {
+	s, err := newSession()
+	if err != nil {
+		return "", err
+	}
+	AllSessions = append(AllSessions, s)
+	expire(s)
+	return string(s[:]), nil
+}
+func newSession() (Session, error) {
+	var token Session
+	for i := 0; i < sessionKeyLength; i++ {
+		byteval, err := rand.Int(rand.Reader, big.NewInt((1<<8)-1))
+		if err != nil {
+			return nullSession, err
+		}
+		token[i] = byte(byteval.Int64())
+	}
+	if hasSession(token) {
+		var err error
+		token, err = newSession()
+		if err != nil {
+			return nullSession, err
+		}
+	}
+	return token, nil
+}
