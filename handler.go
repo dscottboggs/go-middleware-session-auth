@@ -12,8 +12,16 @@ var dummyResponseWriter http.ResponseWriter
 
 // SignIn with a username and password in the query string
 func SignIn(w http.ResponseWriter, r *http.Request) {
-	user := User(r.URL.Query().Get("user"))
-	pass := r.URL.Query().Get("token")
+	var (
+		user User
+		pass string
+	)
+	if user = User(r.FormValue("user")); user == "" {
+		user = User(r.URL.Query().Get("user"))
+	}
+	if pass = r.FormValue("token"); pass == "" {
+		pass = r.URL.Query().Get("token")
+	}
 	if !user.IsAuthenticatedBy(pass) {
 		fmt.Printf("user %s failed to be authenticated with %s", user, pass)
 		w.WriteHeader(http.StatusUnauthorized)
