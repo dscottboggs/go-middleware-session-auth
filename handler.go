@@ -2,6 +2,7 @@ package auth
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 	"time"
 )
@@ -24,7 +25,7 @@ func SignIn(w http.ResponseWriter, r *http.Request) {
 	}
 	if !user.IsAuthenticatedBy(pass) {
 		fmt.Printf("user %s failed to be authenticated with %s", user, pass)
-		w.WriteHeader(http.StatusUnauthorized)
+		http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
 		return
 	}
 	token, err := NewSession()
@@ -38,6 +39,7 @@ func SignIn(w http.ResponseWriter, r *http.Request) {
 		Expires: time.Now().Add(120 * time.Minute),
 	}
 	http.SetCookie(w, &auth)
+	http.Redirect(w, r, "/", 301)
 }
 
 // SessionAuthentication provides a middleware function for handling session
@@ -49,14 +51,30 @@ func SessionAuthentication(
 ) (
 	http.ResponseWriter, *http.Request,
 ) {
-	cookie, err := r.Cookie(sessionTokenCookie)
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		return w, nil
-	}
-	if HasSession(cookie.Value) {
+	if IsUnauthenticatedEndpoint(r.URL.RawPath) {
 		return w, r
 	}
-	w.WriteHeader(http.StatusUnauthorized)
+	cookie, err := r.Cookie(sessionTokenCookie)
+	if err != nil {
+		log.Printf("error getting cookie for %#+v", r.URL)
+		http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
+		return w, nil
+	}
+	if token := cookie.Value; HasSession(token) {
+		log.Printf("authentication successful for '%s'", r.URL.RawPath)
+		Delete(token)
+		if newtoken, err := NewSession(); err != nil {
+			panic(err)
+		} else {
+			http.SetCookie(w, &http.Cookie{
+				Name:    sessionTokenCookie,
+				Value:   newtoken,
+				Expires: time.Now().Add(2 * time.Hour),
+			})
+		}
+		return w, r
+	}
+	log.Printf("authentication unsuccessful for '%s'", r.URL.RawPath)
+	http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
 	return w, nil
 }

@@ -1,9 +1,9 @@
 package auth
 
 import (
-	"crypto/rand"
-	"math/big"
 	"time"
+
+	random "github.com/dscottboggs/go-random-string"
 )
 
 const sessionKeyLength = 1 << 7
@@ -59,6 +59,12 @@ func deleteToken(token Session) {
 	}
 }
 
+func Delete(token string) {
+	var ts Session
+	copy(ts[:], []byte(token))
+	deleteToken(ts)
+}
+
 // SetExpiryDelay changes the delay for session expiry from the default of 2 hours
 func SetExpiryDelay(dTime time.Duration) {
 	expiryDelay = dTime
@@ -77,11 +83,8 @@ func NewSession() (string, error) {
 func newSession() (Session, error) {
 	var token Session
 	for i := 0; i < sessionKeyLength; i++ {
-		byteval, err := rand.Int(rand.Reader, big.NewInt((1<<8)-1))
-		if err != nil {
-			return nullSession, err
-		}
-		token[i] = byte(byteval.Int64())
+		token[i] = byte(random.Alphanumeric())
+
 	}
 	if hasSession(token) {
 		var err error
