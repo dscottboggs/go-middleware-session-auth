@@ -61,20 +61,40 @@ func SessionAuthentication(
 		return w, nil
 	}
 	if token := cookie.Value; HasSession(token) {
-		log.Printf("authentication successful for '%s'", r.URL.RawPath)
-		Delete(token)
-		if newtoken, err := NewSession(); err != nil {
-			panic(err)
-		} else {
-			http.SetCookie(w, &http.Cookie{
-				Name:    sessionTokenCookie,
-				Value:   newtoken,
-				Expires: time.Now().Add(2 * time.Hour),
-			})
-		}
+		// log.Printf("authentication successful for '%s'", r.URL.RawPath)
+		// Delete(token)
+		// if newtoken, err := NewSession(); err != nil {
+		// 	panic(err)
+		// } else {
+		// 	http.SetCookie(w, &http.Cookie{
+		// 		Name:    sessionTokenCookie,
+		// 		Value:   newtoken,
+		// 		Expires: time.Now().Add(2 * time.Hour),
+		// 	})
+		// }
 		return w, r
 	}
 	log.Printf("authentication unsuccessful for '%s'", r.URL.RawPath)
 	http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
 	return w, nil
+}
+
+// IsAllowed determines if a specific request is allowed to be served by
+// session authentication. If the route is allowed without authentication or
+// has a valid session token, true and nil are returned. If the cookie doesn't
+// exist, false is returned along with an error saying so. Finally, in any other
+// case (the case that an invalid authentication token is received), false is
+// returned with a nil error.
+func IsAllowed(w http.ResponseWriter, r *http.Request) (bool, error) {
+	if IsUnauthenticatedEndpoint(r.URL.RawPath) {
+		return true, nil
+	}
+	cookie, err := r.Cookie(sessionTokenCookie)
+	if err != nil {
+		return false, err
+	}
+	if token := cookie.Value; HasSession(token) {
+		return true, nil
+	}
+	return false, nil
 }
