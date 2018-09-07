@@ -18,3 +18,37 @@ func UserExists(name string) error {
 func IsUserExists(err error) bool {
 	return fmt.Sprintf("%T", err) == "auth.userExistsError"
 }
+
+type wrongPasswordError struct{ error }
+
+// WrongPassword returns an error that satisfies IsWrongPassword()
+func WrongPassword(user *User) error {
+	return wrongPasswordError{
+		fmt.Errorf(
+			"user %v was not able to be authenticated by the given password",
+			user,
+		),
+	}
+}
+
+// IsWrongPassword returns true if an error was created by calling WrongPassword()
+func IsWrongPassword(err error) bool {
+	return fmt.Sprintf("%T", err) == "auth.wrongPasswordError"
+}
+
+type noSuchUser struct{ error }
+
+// NoSuchUser returns an error that satisfies IsNoSuchUser()
+func NoSuchUser(user *User) error {
+	return noSuchUser{
+		fmt.Errorf(
+			"user %v does not exist",
+			user,
+		),
+	}
+}
+
+// IsNoSuchUser returns true if an error was created by calling NoSuchUser()
+func IsNoSuchUser(err error) bool {
+	return fmt.Sprintf("%T", err) == "auth.wrongPasswordError"
+}

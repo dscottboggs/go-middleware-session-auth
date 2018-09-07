@@ -70,6 +70,31 @@ func init() {
  *		character '^', making it only match the beginning of the route path.
  */
 func Initialize(config string, unauthenticatedEndpoints ...string) error {
+	if err := globals(config, unauthenticatedEndpoints...); err != nil {
+		return err
+	}
+	return setupFile(config)
+}
+
+// FirstRun Initializes the global varirables, creates a new user, then syncs
+// For non-interactive initializing when there isn't an existing user.
+func FirstRun(
+	username, password, config string,
+	unauthenticatedEndpoints ...string,
+) error {
+	if err := globals(config, unauthenticatedEndpoints...); err != nil {
+		return err
+	}
+	if err := setupFile(config); err != nil {
+		if err := CreateNewUser(username, password); err != nil {
+			return err
+		}
+		return setupFile(config)
+	}
+	return nil
+}
+
+func globals(config string, unauthenticatedEndpoints ...string) error {
 	ConfigLocation = config
 	for _, endpoint := range unauthenticatedEndpoints {
 		exp, err := regexp.Compile("^" + endpoint)
@@ -82,6 +107,10 @@ func Initialize(config string, unauthenticatedEndpoints ...string) error {
 		}
 		unauthenticated = append(unauthenticated, exp)
 	}
+	return nil
+}
+
+func setupFile(config string) error {
 	info, err := os.Stat(ConfigLocation)
 	if os.IsExist(err) || (err == nil && info.Size() > 0) {
 		AllUsers, err = ReadFrom(config)

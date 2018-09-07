@@ -24,6 +24,33 @@ type AuthToken struct {
 // A User's usename
 type User string
 
+func (u *User) ChangePassword(from, to string) error {
+	if !u.IsAuthenticatedBy(from) {
+		return fmt.Errorf("Password %s doesn't authenticate %v", from, u)
+	}
+	salt, err := RandomSalt()
+	if err != nil {
+		return err
+	}
+	tokenValue := pbkdf2.Key(
+		[]byte(to), salt[:], Iterations, KeyLength, sha512.New)
+	token := AuthToken{Token: tokenValue, Salt: salt[:]}
+	AllUsers[*u] = &token
+	return SyncAllUsers()
+}
+
+func (user *User) Delete(password string) error {
+	if AllUsers[*user] == nil {
+		return NoSuchUser(user)
+	}
+	if user.IsAuthenticatedBy(password) {
+		AllUsers[*user] = nil
+	} else {
+		return WrongPassword(user)
+	}
+	return nil
+}
+
 var AllUsers map[User]*AuthToken
 
 // Sync all users to the file.
@@ -199,21 +226,6 @@ func CreateNewUser(name, password string) error {
 		Salt:  salt[:],
 	}
 	AllUsers[User(name)] = &token
-	return SyncAllUsers()
-}
-
-func (u *User) ChangePassword(from, to string) error {
-	if !u.IsAuthenticatedBy(from) {
-		return fmt.Errorf("Password %s doesn't authenticate %v", from, u)
-	}
-	salt, err := RandomSalt()
-	if err != nil {
-		return err
-	}
-	tokenValue := pbkdf2.Key(
-		[]byte(to), salt[:], Iterations, KeyLength, sha512.New)
-	token := AuthToken{Token: tokenValue, Salt: salt[:]}
-	AllUsers[*u] = &token
 	return SyncAllUsers()
 }
 
