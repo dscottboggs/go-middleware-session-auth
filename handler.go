@@ -4,14 +4,21 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"time"
 )
 
 const sessionTokenCookie = "session_token"
 
 var dummyResponseWriter http.ResponseWriter
 
-// SignIn with a username and password in the query string
+// SignIn with a username and password in the query string. If the optional
+// query argument is set (to anything besides the empty string), the Max-Age
+// cookie value will be excluded, which browsers by convention take to mean
+// that the session should expire when the window/tab is closed. It would
+// improve server-site performance if the client would request such a token be
+// expired when such a session ends, as this library has no way of knowing when
+// this event occurs, and therefore makes no effort aside from this cookie value
+// to expire such a token, and it will remain in the valid key store until
+// manually deleted (with Delete(token)) or
 func SignIn(w http.ResponseWriter, r *http.Request) {
 	var (
 		user User
@@ -33,10 +40,25 @@ func SignIn(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	auth := http.Cookie{
-		Name:    sessionTokenCookie,
-		Value:   token,
-		Expires: time.Now().Add(120 * time.Minute),
+	var auth http.Cookie
+	if r.FormValue("forget") != "" {
+		auth = http.Cookie{
+			Name:   sessionTokenCookie,
+			Value:  token,
+			Domain: r.URL.Host,
+			Secure: true,
+			MaxAge: 0, // not-set, browsers interpret this as until the tab is
+			// closed, but that's not in the spec, so watch for unexpected
+			// behavior
+		}
+	} else {
+		auth = http.Cookie{
+			Name:   sessionTokenCookie,
+			Value:  token,
+			Domain: r.URL.Host,
+			Secure: true,
+			MaxAge: 60 * 60 * 24 * 90, // 90 days in seconds
+		}
 	}
 	http.SetCookie(w, &auth)
 	http.Redirect(w, r, "/", 301)
@@ -61,17 +83,6 @@ func SessionAuthentication(
 		return w, nil
 	}
 	if token := cookie.Value; HasSession(token) {
-		// log.Printf("authentication successful for '%s'", r.URL.RawPath)
-		// Delete(token)
-		// if newtoken, err := NewSession(); err != nil {
-		// 	panic(err)
-		// } else {
-		// 	http.SetCookie(w, &http.Cookie{
-		// 		Name:    sessionTokenCookie,
-		// 		Value:   newtoken,
-		// 		Expires: time.Now().Add(2 * time.Hour),
-		// 	})
-		// }
 		return w, r
 	}
 	log.Printf("authentication unsuccessful for '%s'", r.URL.RawPath)

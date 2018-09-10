@@ -8,7 +8,7 @@ import (
 
 const sessionKeyLength = 1 << 7
 
-var expiryDelay = 2 * time.Hour
+var expiryDelay = 24 * 90 * time.Hour
 
 // The Session cookie store
 type Session [sessionKeyLength]byte
@@ -29,25 +29,34 @@ func HasSession(token string) bool {
 	}
 	var t Session
 	copy(t[:], []byte(token))
-	return hasSession(t)
+	return t.CurrentlyExists()
 }
 
-func hasSession(token Session) bool {
-	if token == nullSession {
+// CurrentlyExists --
+// Checks that the given session token is present in the list of permitted
+// sessions.
+func (s *Session) CurrentlyExists() bool {
+	if (*s) == nullSession {
 		return false
 	}
 	for _, session := range AllSessions {
-		if session == token {
+		if session == (*s) {
 			return true
 		}
 	}
 	return false
 }
 
-func expire(token Session) {
+// Expire the session after the default period.
+func (s *Session) Expire() {
+	s.ExpireIn(expiryDelay)
+}
+
+// ExpireIn the given delay.
+func (s *Session) ExpireIn(delay time.Duration) {
 	go func() {
-		time.Sleep(expiryDelay)
-		deleteToken(token)
+		time.Sleep(delay)
+		s.Delete()
 	}()
 }
 
@@ -75,12 +84,7 @@ func SetExpiryDelay(dTime time.Duration) {
 // NewSession returns a new random token.
 func NewSession() (string, error) {
 	s, err := newSession()
-	if err != nil {
-		return "", err
-	}
-	AllSessions = append(AllSessions, s)
-	expire(s)
-	return string(s[:]), nil
+	return string(s[:]), err
 }
 func newSession() (Session, error) {
 	var token Session
@@ -88,12 +92,14 @@ func newSession() (Session, error) {
 		token[i] = byte(random.Alphanumeric())
 
 	}
-	if hasSession(token) {
+	if token.CurrentlyExists() {
 		var err error
 		token, err = newSession()
 		if err != nil {
 			return nullSession, err
 		}
 	}
+	AllSessions = append(AllSessions, token)
+	token.Expire()
 	return token, nil
 }

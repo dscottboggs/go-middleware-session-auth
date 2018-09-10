@@ -3,6 +3,7 @@ package auth
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/dscottboggs/attest"
 )
@@ -14,17 +15,6 @@ func TestHasSession(t *testing.T) {
 	test.Logf("Token: %#+v", token)
 	if !HasSession(token) {
 		test.Error("does not have session from NewToken")
-	}
-}
-func TestDoesNotHaveSession(t *testing.T) {
-	test := attest.New(t)
-	token, err := newSession()
-	test.Handle(err)
-	if hasSession(token) {
-		test.Error("has session from newToken.")
-	}
-	if hasSession(nullSession) {
-		test.Error("has null session")
 	}
 }
 func BenchmarkNewSession(b *testing.B) {
@@ -59,5 +49,41 @@ func BenchmarkHasSession(bench *testing.B) {
 				}
 			}
 		})
+	}
+}
+
+func TestExpiryAndDeletion(t *testing.T) {
+	test := attest.NewTest(t)
+	token := test.EatError(newSession()).(Session)
+	if !token.CurrentlyExists() {
+		test.Fatal("newly created session didn't exist")
+	}
+	token.ExpireIn(2 * time.Second)
+	time.Sleep(2 * time.Second)
+	if token.CurrentlyExists() {
+		test.Error("token still existed after expiry time")
+	}
+	time.Sleep(1 * time.Second)
+	if token.CurrentlyExists() {
+		test.Error("token still existed another second later")
+	}
+	token = test.EatError(newSession()).(Session)
+	if !token.CurrentlyExists() {
+		test.Fatal("newly created session didn't exist")
+	}
+	token.Delete()
+	if token.CurrentlyExists() {
+		test.Error("token still exists after deletion")
+	}
+	tokenString := test.EatError(NewSession()).(string)
+	if !HasSession(tokenString) {
+		test.Fatal("newly created session didn't exist")
+	}
+	Delete(tokenString)
+	if HasSession(tokenString) {
+		test.Error("token still exists after deletion")
+	}
+	if nullSession.CurrentlyExists() {
+		test.Error("null session is authenticated!")
 	}
 }
