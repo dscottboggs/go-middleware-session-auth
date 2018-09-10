@@ -51,18 +51,20 @@ func expire(token Session) {
 	}()
 }
 
-func deleteToken(token Session) {
-	for index, sess := range AllSessions {
-		if token == sess {
-			AllSessions[index] = nullSession
+// Delete the given token from the list of allowed sessions.
+func (s *Session) Delete() {
+	for index, token := range AllSessions {
+		if (*s) == token {
+			AllSessions = append(AllSessions[:index], AllSessions[index+1:]...)
 		}
 	}
 }
 
+// Delete the given token, given as a string.
 func Delete(token string) {
 	var ts Session
 	copy(ts[:], []byte(token))
-	deleteToken(ts)
+	ts.Delete()
 }
 
 // SetExpiryDelay changes the delay for session expiry from the default of 2 hours
