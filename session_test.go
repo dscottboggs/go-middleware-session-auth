@@ -59,7 +59,7 @@ func TestExpiryAndDeletion(t *testing.T) {
 		test.Fatal("newly created session didn't exist")
 	}
 	token.ExpireIn(2 * time.Second)
-	time.Sleep(2 * time.Second)
+	time.Sleep(2500 * time.Millisecond)
 	if token.CurrentlyExists() {
 		test.Error("token still existed after expiry time")
 	}

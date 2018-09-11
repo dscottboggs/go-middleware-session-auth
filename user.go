@@ -53,7 +53,7 @@ func (user *User) Delete(password string) error {
 
 var AllUsers map[User]*AuthToken
 
-// Sync all users to the file.
+// SyncAllUsers to the file.
 func SyncAllUsers() error {
 	// create the file
 	configFile, err := os.Create(ConfigLocation)

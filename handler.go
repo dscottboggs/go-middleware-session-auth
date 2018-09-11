@@ -24,14 +24,10 @@ func SignIn(w http.ResponseWriter, r *http.Request) {
 		user User
 		pass string
 	)
-	if user = User(r.FormValue("user")); user == "" {
-		user = User(r.URL.Query().Get("user"))
-	}
-	if pass = r.FormValue("token"); pass == "" {
-		pass = r.URL.Query().Get("token")
-	}
+	user = User(r.FormValue("user")) // r.FormValue accepts post form or URL
+	pass = r.FormValue("token")      // queries
 	if !user.IsAuthenticatedBy(pass) {
-		fmt.Printf("user %s failed to be authenticated with %s", user, pass)
+		fmt.Printf("user %s failed to be authenticated with %s\n", user, pass)
 		http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
 		return
 	}
@@ -78,14 +74,14 @@ func SessionAuthentication(
 	}
 	cookie, err := r.Cookie(sessionTokenCookie)
 	if err != nil {
-		log.Printf("error getting cookie for %#+v", r.URL)
+		log.Printf("error getting cookie for %#+v\n", r.URL)
 		http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
 		return w, nil
 	}
 	if token := cookie.Value; HasSession(token) {
 		return w, r
 	}
-	log.Printf("authentication unsuccessful for '%s'", r.URL.RawPath)
+	log.Printf("authentication unsuccessful for '%s'\n", r.URL.RawPath)
 	http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
 	return w, nil
 }
