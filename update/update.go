@@ -50,20 +50,20 @@ func main() {
 		}
 		os.Exit(statusOK)
 	case "check", "verify", "v":
-		if user := auth.User(uname); user.IsAuthenticatedBy(pw) {
+		if user := auth.Username(uname); user.IsAuthenticatedBy(pw) {
 			log.Println("OK")
 			os.Exit(statusOK)
 		}
 		log.Println("NOT OK")
 		os.Exit(1)
 	case "delete", "d":
-		user := auth.User(uname)
+		user := auth.Username(uname)
 		if err := user.Delete(pw); err != nil {
 			log.Fatalf("couldn't delete user %s; %v", uname, err)
 		}
 		os.Exit(statusOK)
 	case "update", "change", "u", "up", "upd8":
-		user := auth.User(uname)
+		user := auth.Username(uname)
 		if newpw == "" {
 			log.Println("no new password specified.")
 			flag.PrintDefaults()

@@ -26,7 +26,7 @@ const (
 	// ColSeparator separates the columns when dumping or reading from the
 	// string format
 	ColSeparator = "-|-"
-	WHITESPACE   = "\n\t "
+	whitespace   = "\n\t "
 	// wordListURL is where to download the list of words to choose from
 	wordListURL = "http://svnweb.freebsd.org/csrg/share/dict/words" +
 		"?view=co&content-type=text/plain"
@@ -53,7 +53,7 @@ func IsUnauthenticatedEndpoint(route string) bool {
 }
 
 func init() {
-	AllUsers = make(map[User]*AuthToken)
+	AllUsers = make(map[Username]*AuthToken)
 	wordListLocation = path.Join(ConfigLocation, "..", "wordlist.txt")
 }
 
@@ -147,10 +147,10 @@ func setupFile(config string) error {
 	return nil
 }
 
-func ReadFrom(config string) (map[User]*AuthToken, error) {
+func ReadFrom(config string) (map[Username]*AuthToken, error) {
 	txt, err := ioutil.ReadFile(config)
 	if err != nil {
-		return map[User]*AuthToken{}, err
+		return map[Username]*AuthToken{}, err
 	}
 	text := string(txt)
 	return FromStringToValues(text)

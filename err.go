@@ -22,7 +22,7 @@ func IsUserExists(err error) bool {
 type wrongPasswordError struct{ error }
 
 // WrongPassword returns an error that satisfies IsWrongPassword()
-func WrongPassword(user *User) error {
+func WrongPassword(user *Username) error {
 	return wrongPasswordError{
 		fmt.Errorf(
 			"user %v was not able to be authenticated by the given password",
@@ -39,7 +39,7 @@ func IsWrongPassword(err error) bool {
 type noSuchUser struct{ error }
 
 // NoSuchUser returns an error that satisfies IsNoSuchUser()
-func NoSuchUser(user *User) error {
+func NoSuchUser(user *Username) error {
 	return noSuchUser{
 		fmt.Errorf(
 			"user %v does not exist",

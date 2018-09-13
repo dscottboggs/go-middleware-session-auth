@@ -26,11 +26,11 @@ var dummyResponseWriter http.ResponseWriter
 // manually deleted (with Delete(token)) or it expires.
 func SignIn(w http.ResponseWriter, r *http.Request) {
 	var (
-		user User
+		user Username
 		pass string
 	)
-	user = User(r.FormValue("user")) // r.FormValue accepts post form or URL
-	pass = r.FormValue("token")      // queries
+	user = Username(r.FormValue("user")) // r.FormValue accepts post form or URL
+	pass = r.FormValue("token")          // queries
 	if !user.IsAuthenticatedBy(pass) {
 		fmt.Printf("user %s failed to be authenticated with %s\n", user, pass)
 		http.Redirect(w, r, "/login?failed=true", http.StatusTemporaryRedirect)
@@ -48,11 +48,11 @@ func SignIn(w http.ResponseWriter, r *http.Request) {
 // action up to the calling function.
 func GetToken(w http.ResponseWriter, r *http.Request) string {
 	var (
-		user User
+		user Username
 		pass string
 	)
-	user = User(r.FormValue("user")) // r.FormValue accepts post form or URL
-	pass = r.FormValue("token")      // queries
+	user = Username(r.FormValue("user")) // r.FormValue accepts post form or URL
+	pass = r.FormValue("token")          // queries
 	if !user.IsAuthenticatedBy(pass) {
 		return ""
 	}

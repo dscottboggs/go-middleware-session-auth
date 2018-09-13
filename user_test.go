@@ -9,7 +9,7 @@ import (
 
 func TestAuthentication(t *testing.T) {
 	test := attest.Test{t}
-	username := User("test authentication user's name")
+	username := Username("test authentication user's name")
 	testpass := "test authentication user's password. such strong. much protect."
 	test.Handle(CreateNewUser(string(username), testpass))
 	if !username.IsAuthenticatedBy(testpass) {
@@ -18,15 +18,15 @@ func TestAuthentication(t *testing.T) {
 	if username.IsAuthenticatedBy("password") {
 		t.Error("Authentication was granted for incorrect password.")
 	}
-	if user := User("nonexistent user"); user.IsAuthenticatedBy("password") {
+	if user := Username("nonexistent user"); user.IsAuthenticatedBy("password") {
 		t.Error("nonexistent user was authenticated")
 	}
 }
 
 func TestToAndFromString(t *testing.T) {
 	test := attest.Test{t}
-	testvals := make(map[User]*AuthToken)
-	username := User("test to-and-from-string user's name")
+	testvals := make(map[Username]*AuthToken)
+	username := Username("test to-and-from-string user's name")
 	testpass := "test to-and-from-string user's password. such strong. much protect."
 	test.Handle(CreateNewUser(string(username), testpass))
 	if !username.IsAuthenticatedBy(testpass) {
@@ -100,7 +100,7 @@ func TestToAndFromString(t *testing.T) {
 
 func TestChangePassword(t *testing.T) {
 	test := attest.Test{t}
-	username := User("test change password user's name")
+	username := Username("test change password user's name")
 	testpass := "test change password user's password"
 	test.Handle(CreateNewUser(string(username), testpass))
 	if !username.IsAuthenticatedBy(testpass) {

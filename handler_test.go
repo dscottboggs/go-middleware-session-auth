@@ -113,7 +113,7 @@ func TestSessionAuthentication(t *testing.T) {
 func TestSignIn(t *testing.T) {
 	test := attest.NewTest(t)
 	username, password := "test SignIn user", "test SignIn user's password"
-	user := User(username)
+	user := Username(username)
 	test.Handle(CreateNewUser(username, password))
 	if !user.IsAuthenticatedBy(password) {
 		test.Error("user is not authenticated by password.")
@@ -162,7 +162,7 @@ func TestGetToken(t *testing.T) {
 	var (
 		test               = attest.New(t)
 		username, password = "test GetToken user", "test GetToken user's password"
-		user               = User(username)
+		user               = Username(username)
 	)
 	test.Run("expected success case", func(st *testing.T) {
 		var (
