@@ -41,7 +41,7 @@ func SignIn(w http.ResponseWriter, r *http.Request) {
 		Value:  NewSession(),
 		MaxAge: ninetyDays,
 	})
-	http.Redirect(w, r, "/", http.StatusMovedPermanently /*(301)*/)
+	http.Redirect(w, r, "/", http.StatusTemporaryRedirect /* (307) */)
 }
 
 // GetToken acts like SignIn, but returns a status value to leave the
