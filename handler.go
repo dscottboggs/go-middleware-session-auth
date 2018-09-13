@@ -39,7 +39,6 @@ func SignIn(w http.ResponseWriter, r *http.Request) {
 	http.SetCookie(w, &http.Cookie{
 		Name:   SessionTokenCookie,
 		Value:  NewSession(),
-		Secure: true,
 		MaxAge: ninetyDays,
 	})
 	http.Redirect(w, r, "/", http.StatusMovedPermanently /*(301)*/)
@@ -76,11 +75,14 @@ func SessionAuthentication(
 	cookie, err := r.Cookie(SessionTokenCookie)
 	if err != nil {
 		log.Printf("error getting cookie for %#+v\n", r.URL)
-		/*	http.SetCookie(w, &http.Cookie{
-			Name:   SessionTokenCookie,
-			Value:  "",
-			MaxAge: -1, // delete the cookie
-		})*/
+		/*
+			causes problems
+				http.SetCookie(w, &http.Cookie{
+					Name:   SessionTokenCookie,
+					Value:  "",
+					MaxAge: -1, // delete the cookie
+				})
+		*/
 		http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
 		return w, nil
 	}

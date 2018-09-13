@@ -101,14 +101,12 @@ func TestSessionAuthentication(t *testing.T) {
 			w.Write([]byte("OK."))
 		}(SessionAuthentication(rec, req))
 		res := rec.Result()
-		if res.StatusCode != http.StatusTemporaryRedirect {
-			subtest.Errorf(
-				"got status code %d from invalidly authenticated request; "+
-					"expected %d\n",
-				res.StatusCode,
-				http.StatusTemporaryRedirect,
-			)
-		}
+		subtest.Equals(http.StatusTemporaryRedirect, res.StatusCode,
+			"got status code %d from invalidly authenticated request; "+
+				"expected %d\n",
+			res.StatusCode,
+			http.StatusTemporaryRedirect,
+		)
 	})
 }
 
@@ -130,12 +128,12 @@ func TestSignIn(t *testing.T) {
 		req.URL.RawQuery = q.Encode()
 		SignIn(rec, req)
 		res := rec.Result()
-		if res.StatusCode != 301 {
-			subtest.Errorf(
-				"got status code %d from SignIn, expected 301",
-				res.StatusCode,
-			)
-		}
+		test.Equals(
+			http.StatusMovedPermanently,
+			res.StatusCode,
+			"got status code %d from SignIn, expected 301",
+			res.StatusCode,
+		)
 		for _, cookie := range res.Cookies() {
 			if cookie.Name == SessionTokenCookie {
 				if !HasSession(cookie.Value) {
@@ -156,12 +154,7 @@ func TestSignIn(t *testing.T) {
 		req.Form = f
 		SignIn(rec, req)
 		res := rec.Result()
-		if res.StatusCode != 307 {
-			subtest.Errorf(
-				"got status code %d from SignIn, expected 307",
-				res.StatusCode,
-			)
-		}
+		subtest.Equals(http.StatusTemporaryRedirect, res.StatusCode)
 	})
 }
 
