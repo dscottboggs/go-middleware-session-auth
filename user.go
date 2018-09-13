@@ -49,7 +49,7 @@ type Username string
 // salt, or the result of SyncAllUsers, which may be a non-nil error.
 func (u *Username) ChangePassword(from, to string) error {
 	if !u.IsAuthenticatedBy(from) {
-		return fmt.Errorf("Password %s doesn't authenticate %v", from, u)
+		return fmt.Errorf("Password %s doesn't authenticate %v\n", from, u)
 	}
 	token, err := NewAuthToken([]byte(to))
 	if err != nil {

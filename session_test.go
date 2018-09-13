@@ -11,7 +11,7 @@ import (
 func TestHasSession(t *testing.T) {
 	test := attest.New(t)
 	token := NewSession()
-	test.Logf("Token: %#+v", token)
+	test.Logf("Token: %#+\n", token)
 	if !HasSession(token) {
 		test.Error("does not have session from NewToken")
 	}

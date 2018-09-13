@@ -19,7 +19,7 @@ func createTestDir() string {
 	if os.IsNotExist(statErr) {
 		mkdirErr := os.Mkdir(testdir, os.ModeDir|os.FileMode(0755))
 		if os.IsPermission(mkdirErr) {
-			log.Fatalf("Can't create %s, no permissions", testdir)
+			log.Fatalf("Can't create %s, no permissions\n", testdir)
 		} else if mkdirErr != nil {
 			log.Fatal(mkdirErr)
 		}
@@ -31,7 +31,7 @@ func createTestDir() string {
 	if info.IsDir() {
 		return testdir
 	} else {
-		log.Fatalf("%s isn't a directory!", testdir)
+		log.Fatalf("%s isn't a directory!\n", testdir)
 	}
 	return ""
 }

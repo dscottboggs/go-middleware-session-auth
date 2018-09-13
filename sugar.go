@@ -38,9 +38,9 @@ func PromptForSingleUser() error {
 	if pass == "" {
 		pass, err = random.Words(3, "_")
 		if err != nil {
-			return fmt.Errorf("error generating password: %v", err)
+			return fmt.Errorf("error generating password: %v\n", err)
 		}
 	}
-	fmt.Printf("Using username %s and password %s.", uname, pass)
+	fmt.Printf("Using username %s and password %s.\n", uname, pass)
 	return CreateNewUser(uname, pass)
 }

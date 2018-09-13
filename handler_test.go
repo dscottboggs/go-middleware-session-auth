@@ -200,7 +200,7 @@ func TestGetToken(t *testing.T) {
 		req.Form = f
 		var tokenString = GetToken(rec, req)
 		if tokenString != "" {
-			subtest.Errorf("tokenString was %s", tokenString)
+			subtest.Errorf("tokenString was %s\n", tokenString)
 		}
 		copy(token[:], []byte(tokenString))
 		if HasSession(tokenString) {

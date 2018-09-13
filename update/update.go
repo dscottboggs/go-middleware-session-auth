@@ -41,15 +41,15 @@ func main() {
 	var foundEmptyString bool
 	switch {
 	case tokenLocation == "":
-		log.Printf("tokenLocation: %s", tokenLocation)
+		log.Printf("tokenLocation: %s\n", tokenLocation)
 		foundEmptyString = true
 		fallthrough
 	case uname == "":
-		log.Printf("uname: %s", uname)
+		log.Printf("uname: %s\n", uname)
 		foundEmptyString = true
 		fallthrough
 	case pw == "":
-		log.Printf(" pw: %s", pw)
+		log.Printf(" pw: %s\n", pw)
 		foundEmptyString = true
 	}
 	if foundEmptyString {
@@ -63,7 +63,7 @@ func main() {
 	switch actionString {
 	case "new", "create", "c", "add":
 		if err := auth.CreateNewUser(uname, pw); err != nil {
-			log.Fatalf("failed to create new user: %v", err)
+			log.Fatalf("failed to create new user: %v\n", err)
 		}
 		os.Exit(statusOK)
 	case "check", "verify", "v":
@@ -76,7 +76,7 @@ func main() {
 	case "delete", "d":
 		user := auth.Username(uname)
 		if err := user.Delete(pw); err != nil {
-			log.Fatalf("couldn't delete user %s; %v", uname, err)
+			log.Fatalf("couldn't delete user %s; %v\n", uname, err)
 		}
 		os.Exit(statusOK)
 	case "update", "change", "u", "up", "upd8":
@@ -87,11 +87,11 @@ func main() {
 			os.Exit(statusIncorrectUsage)
 		}
 		if err := user.ChangePassword(pw, newpw); err != nil {
-			log.Fatalf("couldn't change password for %s; %v", uname, err)
+			log.Fatalf("couldn't change password for %s; %v\n", uname, err)
 		}
 		os.Exit(0)
 	default:
-		log.Fatalf("invalid action %s", actionString)
+		log.Fatalf("invalid action %s\n", actionString)
 	}
 
 }
