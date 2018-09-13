@@ -36,15 +36,32 @@ func main() {
 	flag.StringVar(&pw, "pw", "", "the password to work with")
 	flag.StringVar(&newpw, "new-pw", "", "the new password to use when changing.")
 
-	for _, flagstr := range []string{tokenLocation, uname, pw} {
-		if flagstr == "" {
-			flag.PrintDefaults()
-			os.Exit(statusIncorrectUsage)
-		}
-	}
+	flag.Parse()
 
+	var foundEmptyString bool
+	switch {
+	case tokenLocation == "":
+		log.Printf("tokenLocation: %s", tokenLocation)
+		foundEmptyString = true
+		fallthrough
+	case uname == "":
+		log.Printf("uname: %s", uname)
+		foundEmptyString = true
+		fallthrough
+	case pw == "":
+		log.Printf(" pw: %s", pw)
+		foundEmptyString = true
+	}
+	if foundEmptyString {
+		flag.Usage()
+		os.Exit(statusIncorrectUsage)
+	}
+	err := auth.Initialize(tokenLocation)
+	if err != nil {
+		log.Fatal(err)
+	}
 	switch actionString {
-	case "new", "create", "c":
+	case "new", "create", "c", "add":
 		if err := auth.CreateNewUser(uname, pw); err != nil {
 			log.Fatalf("failed to create new user: %v", err)
 		}
