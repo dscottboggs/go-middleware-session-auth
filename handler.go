@@ -4,10 +4,14 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"time"
 )
 
-const SessionTokenCookie = "session_token"
+const (
+	// SessionTokenCookie -- The key that the session cookie is referenced by
+	SessionTokenCookie = "session_token"
+	// 90 days in seconds
+	ninetyDays = 60 * 60 * 24 * 90
+)
 
 var dummyResponseWriter http.ResponseWriter
 
@@ -19,7 +23,7 @@ var dummyResponseWriter http.ResponseWriter
 // expired when such a session ends, as this library has no way of knowing when
 // this event occurs, and therefore makes no effort aside from this cookie value
 // to expire such a token, and it will remain in the valid key store until
-// manually deleted (with Delete(token)) or
+// manually deleted (with Delete(token)) or it expires.
 func SignIn(w http.ResponseWriter, r *http.Request) {
 	var (
 		user User
@@ -32,30 +36,13 @@ func SignIn(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/login?failed=true", http.StatusTemporaryRedirect)
 		return
 	}
-	token := NewSession()
-	var auth http.Cookie
-	ninetyDays := 60 * 60 * 24 * 90 // 90 days in seconds
-	if r.FormValue("forget") != "" {
-		auth = http.Cookie{
-			Name:   SessionTokenCookie,
-			Value:  token,
-			Domain: r.URL.Host,
-			Secure: true,
-		}
-		http.SetCookie(w, &auth)
-		http.Redirect(w, r, "/?forget=true", http.StatusPermanentRedirect) // 308
-	} else {
-		auth = http.Cookie{
-			Name:    SessionTokenCookie,
-			Value:   token,
-			Domain:  r.URL.Host,
-			Secure:  true,
-			MaxAge:  ninetyDays,
-			Expires: time.Now().Add(time.Duration(ninetyDays) * time.Second),
-		}
-		http.SetCookie(w, &auth)                              // WHY NO COOKIE??
-		http.Redirect(w, r, "/", http.StatusMovedPermanently) // 301
-	}
+	http.SetCookie(w, &http.Cookie{
+		Name:   SessionTokenCookie,
+		Value:  NewSession(),
+		Secure: true,
+		MaxAge: ninetyDays,
+	})
+	http.Redirect(w, r, "/", http.StatusMovedPermanently /*(301)*/)
 }
 
 // GetToken acts like SignIn, but returns a status value to leave the
@@ -89,12 +76,12 @@ func SessionAuthentication(
 	cookie, err := r.Cookie(SessionTokenCookie)
 	if err != nil {
 		log.Printf("error getting cookie for %#+v\n", r.URL)
-		http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
 		http.SetCookie(w, &http.Cookie{
 			Name:   SessionTokenCookie,
 			Value:  "",
 			MaxAge: -1, // delete the cookie
 		})
+		http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
 		return w, nil
 	}
 	if token := cookie.Value; HasSession(token) {

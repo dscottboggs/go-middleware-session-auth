@@ -145,33 +145,6 @@ func TestSignIn(t *testing.T) {
 			}
 		}
 	})
-	test.Run(`with valid user and "forget" paramter set`, func(st *testing.T) {
-		subtest := attest.NewTest(st)
-		rec, req := subtest.NewRecorder("/login")
-		req.Method = "POST"
-		f := make(url.Values)
-		f.Set("user", username)
-		f.Set("token", password)
-		f.Set("forget", "yes")
-		req.Form = f
-		SignIn(rec, req)
-		res := rec.Result()
-		if res.StatusCode != http.StatusPermanentRedirect {
-			subtest.Errorf(
-				"got status code %d from SignIn, expected %d",
-				res.StatusCode,
-				http.StatusPermanentRedirect,
-			)
-		}
-		for _, cookie := range res.Cookies() {
-			if cookie.Name == SessionTokenCookie {
-				if !HasSession(cookie.Value) {
-					subtest.Error("got false from HasSession after SignIn request.")
-				}
-				Delete(cookie.Value)
-			}
-		}
-	})
 	user.Delete(password)
 	test.Run("after deleting user", func(st *testing.T) {
 		subtest := attest.NewTest(st)
