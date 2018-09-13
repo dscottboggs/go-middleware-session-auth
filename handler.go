@@ -76,11 +76,11 @@ func SessionAuthentication(
 	cookie, err := r.Cookie(SessionTokenCookie)
 	if err != nil {
 		log.Printf("error getting cookie for %#+v\n", r.URL)
-		http.SetCookie(w, &http.Cookie{
+		/*	http.SetCookie(w, &http.Cookie{
 			Name:   SessionTokenCookie,
 			Value:  "",
 			MaxAge: -1, // delete the cookie
-		})
+		})*/
 		http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
 		return w, nil
 	}
@@ -88,11 +88,14 @@ func SessionAuthentication(
 		return w, r
 	}
 	log.Printf("authentication unsuccessful for '%s'\n", r.URL.RawPath)
-	http.SetCookie(w, &http.Cookie{
-		Name:   SessionTokenCookie,
-		Value:  "",
-		MaxAge: -1, // delete the cookie
-	})
+	/*
+		causes problems
+		http.SetCookie(w, &http.Cookie{
+			Name:   SessionTokenCookie,
+			Value:  "",
+			MaxAge: -1, // delete the cookie
+		})
+	*/
 	http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
 	return w, nil
 }
