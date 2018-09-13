@@ -2,7 +2,6 @@ package auth
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path"
 	"regexp"
@@ -26,7 +25,8 @@ const (
 	// ColSeparator separates the columns when dumping or reading from the
 	// string format
 	ColSeparator = "-|-"
-	whitespace   = "\n\t "
+	eof          = 0
+	whitespace   = "\n\t \x00"
 	// wordListURL is where to download the list of words to choose from
 	wordListURL = "http://svnweb.freebsd.org/csrg/share/dict/words" +
 		"?view=co&content-type=text/plain"
@@ -53,7 +53,7 @@ func IsUnauthenticatedEndpoint(route string) bool {
 }
 
 func init() {
-	AllUsers = make(map[Username]*AuthToken)
+	AllUsers = make(map[Username]*Token)
 	wordListLocation = path.Join(ConfigLocation, "..", "wordlist.txt")
 }
 
@@ -145,13 +145,4 @@ func setupFile(config string) error {
 		}
 	}
 	return nil
-}
-
-func ReadFrom(config string) (map[Username]*AuthToken, error) {
-	txt, err := ioutil.ReadFile(config)
-	if err != nil {
-		return map[Username]*AuthToken{}, err
-	}
-	text := string(txt)
-	return FromStringToValues(text)
 }

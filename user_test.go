@@ -1,14 +1,17 @@
 package auth
 
 import (
-	"encoding/hex"
+	"crypto/sha512"
+	"io"
 	"testing"
 
 	"github.com/dscottboggs/attest"
+	"golang.org/x/crypto/pbkdf2"
 )
 
 func TestAuthentication(t *testing.T) {
-	test := attest.Test{t}
+	test := attest.New(t)
+	AllUsers = make(UserCollection)
 	username := Username("test authentication user's name")
 	testpass := "test authentication user's password. such strong. much protect."
 	test.Handle(CreateNewUser(string(username), testpass))
@@ -21,81 +24,6 @@ func TestAuthentication(t *testing.T) {
 	if user := Username("nonexistent user"); user.IsAuthenticatedBy("password") {
 		t.Error("nonexistent user was authenticated")
 	}
-}
-
-func TestToAndFromString(t *testing.T) {
-	test := attest.Test{t}
-	testvals := make(map[Username]*AuthToken)
-	username := Username("test to-and-from-string user's name")
-	testpass := "test to-and-from-string user's password. such strong. much protect."
-	test.Handle(CreateNewUser(string(username), testpass))
-	if !username.IsAuthenticatedBy(testpass) {
-		t.Error("Authentication failed.")
-	}
-	if username.IsAuthenticatedBy("password") {
-		t.Error("Authentication was granted for incorrect password.")
-	}
-	testvals[username] = AllUsers[username]
-	auth := testvals[username]
-	test.Logf(
-		"Token: %v\nSalt: %v",
-		hex.EncodeToString(auth.Token[:]),
-		hex.EncodeToString(auth.Salt[:]))
-	expectedStr := string(username) +
-		ColSeparator +
-		hex.EncodeToString(auth.Salt[:]) +
-		ColSeparator +
-		hex.EncodeToString(auth.Token[:]) +
-		LineSeparator
-	test.Equals(expectedStr, ToString(testvals))
-	fromStr, err := FromStringToValues(expectedStr)
-	test.Handle(err)
-	test.NotNil(fromStr[username], "fromStr[username] was nil")
-	for index, byteval := range auth.Salt {
-		test.Equals(byteval, fromStr[username].Salt[index])
-	}
-	for index, byteval := range auth.Token {
-		test.Equals(byteval, fromStr[username].Token[index])
-	}
-	// Failure cases
-	_, err = FromStringToValues("invalid string")
-	test.NotNil(err, "got nil error for invalid string to FromStringToValues")
-	_, err = FromStringToValues(
-		string(username) +
-			ColSeparator +
-			string(auth.Salt[:]) +
-			ColSeparator +
-			hex.EncodeToString(auth.Token[:]))
-	test.NotNil(
-		err,
-		"got nil error when passing malformed string to FromStringToValues",
-	)
-	_, err = FromStringToValues(
-		string(username) +
-			ColSeparator +
-			hex.EncodeToString(auth.Salt[:]) +
-			ColSeparator +
-			string(auth.Token[:]))
-	test.NotNil(
-		err,
-		"got nil error when passing malformed string to FromStringToValues",
-	)
-	_, err = FromStringToValues(
-		string(username) +
-			ColSeparator +
-			hex.EncodeToString(auth.Salt[:]) +
-			ColSeparator +
-			hex.EncodeToString(auth.Token[:]) +
-			LineSeparator +
-			string(username) +
-			ColSeparator +
-			hex.EncodeToString(auth.Salt[:]) +
-			ColSeparator +
-			hex.EncodeToString(auth.Token[:]))
-	test.NotNil(
-		err,
-		"got nil error when passing malformed string to FromStringToValues",
-	)
 }
 
 func TestChangePassword(t *testing.T) {
@@ -129,4 +57,48 @@ func TestChangePassword(t *testing.T) {
 		"got nil error when trying to change password by passing invalid "+
 			"password",
 	)
+}
+
+func TestReadAndWrite(t *testing.T) {
+	const (
+		username = "test r/w user"
+		password = "test rw/ user's password"
+	)
+	var (
+		test    = attest.New(t)
+		out, in = io.Pipe()
+		user    = Username(username)
+		readkey [KeyLength]byte
+	)
+	AllUsers = make(UserCollection)
+	test.Handle(CreateNewUser(username, password))
+	test.Attest(user.IsAuthenticatedBy(password), "user failed authentication")
+	test.Equals(1, len(AllUsers))
+	go func() { test.Handle(AllUsers.Write(in)) }()
+	read := test.EatError(Read(out)).(UserCollection)
+	test.Equals(1, len(read))
+	copy(
+		readkey[:],
+		pbkdf2.Key(
+			[]byte(password), read[user].Salt[:], Iterations, KeyLength, sha512.New,
+		),
+	)
+	test.Equals(
+		len(AllUsers[user].HashValue),
+		len(readkey),
+		"key lengths differed -- orig: %d; read: %d",
+		len(AllUsers[user].HashValue),
+		len(readkey),
+	)
+	for index, byteval := range AllUsers[user].HashValue {
+		test.Equals(
+			byteval,        //expected
+			readkey[index], // actual
+			// message:
+			"read key didn't match original token at index %d\norig: %d\nread: %d",
+			index,
+			byteval,
+			readkey[index],
+		)
+	}
 }

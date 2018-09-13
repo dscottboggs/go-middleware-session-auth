@@ -164,6 +164,7 @@ func TestGetToken(t *testing.T) {
 		username, password = "test GetToken user", "test GetToken user's password"
 		user               = Username(username)
 	)
+	AllUsers = make(UserCollection)
 	test.Run("expected success case", func(st *testing.T) {
 		var (
 			subtest  = attest.New(st)
