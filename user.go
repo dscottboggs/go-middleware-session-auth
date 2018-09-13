@@ -17,14 +17,17 @@ import (
 
 // AuthToken -- the stored token and corresponding salt of a given user
 type AuthToken struct {
-	Token []byte
-	Salt  []byte
+	Token [KeyLength]byte
+	Salt  [SaltSize]byte
 }
 
-// A User's usename
-type User string
+// The map of all Usernames to their AuthTokens
+var AllUsers map[Username]*AuthToken
 
-func (u *User) ChangePassword(from, to string) error {
+// The Username of a user
+type Username string
+
+func (u *Username) ChangePassword(from, to string) error {
 	if !u.IsAuthenticatedBy(from) {
 		return fmt.Errorf("Password %s doesn't authenticate %v", from, u)
 	}
@@ -34,12 +37,13 @@ func (u *User) ChangePassword(from, to string) error {
 	}
 	tokenValue := pbkdf2.Key(
 		[]byte(to), salt[:], Iterations, KeyLength, sha512.New)
-	token := AuthToken{Token: tokenValue, Salt: salt[:]}
+	token := AuthToken{Salt: salt}
+	copy(token.Token[:], tokenValue)
 	AllUsers[*u] = &token
 	return SyncAllUsers()
 }
 
-func (user *User) Delete(password string) error {
+func (user *Username) Delete(password string) error {
 	if AllUsers[*user] == nil {
 		return NoSuchUser(user)
 	}
@@ -50,8 +54,6 @@ func (user *User) Delete(password string) error {
 	}
 	return nil
 }
-
-var AllUsers map[User]*AuthToken
 
 // SyncAllUsers to the file.
 func SyncAllUsers() error {
@@ -104,7 +106,7 @@ func SyncAllUsers() error {
 
 // ToString pickles the data structure into a string, ready to be written by
 // SyncAllUsers(), and read by FromStringToValues()
-func ToString(values map[User]*AuthToken) string {
+func ToString(values map[Username]*AuthToken) string {
 	var strVersion string
 	for k, v := range values {
 		if v != nil {
@@ -123,8 +125,8 @@ func ToString(values map[User]*AuthToken) string {
 // FromStringToValues converts the string which has just been read into the
 // appropriate data structure. It returns an error if it encounters duplicate
 // users.
-func FromStringToValues(str string) (map[User]*AuthToken, error) {
-	var out = make(map[User]*AuthToken)
+func FromStringToValues(str string) (map[Username]*AuthToken, error) {
+	var out = make(map[Username]*AuthToken)
 	for _, line := range strings.Split(str, LineSeparator) {
 		thisLineVals := strings.Split(line, ColSeparator)
 		if len(thisLineVals) != 3 {
@@ -137,7 +139,7 @@ func FromStringToValues(str string) (map[User]*AuthToken, error) {
 				str,
 			)
 		}
-		uName := User(thisLineVals[0])
+		uName := Username(thisLineVals[0])
 		salt, err := hex.DecodeString(thisLineVals[1])
 		if err != nil {
 			return out, err
@@ -146,7 +148,9 @@ func FromStringToValues(str string) (map[User]*AuthToken, error) {
 		if err != nil {
 			return out, err
 		}
-		auth := AuthToken{Salt: salt, Token: token}
+		auth := AuthToken{}
+		copy(auth.Salt[:], salt)
+		copy(auth.Token[:], token)
 		if out[uName] != nil {
 			return out, UserExists(string(uName))
 		}
@@ -162,7 +166,7 @@ func PromptForSingleUser() error {
 	if err != nil {
 		return err
 	}
-	uname = strings.Trim(uname, WHITESPACE)
+	uname = strings.Trim(uname, whitespace)
 	if len(uname) == 0 {
 		uname = "admin"
 	}
@@ -178,7 +182,7 @@ func PromptForSingleUser() error {
 	if err != nil {
 		return err
 	}
-	pass = strings.Trim(pass, WHITESPACE)
+	pass = strings.Trim(pass, whitespace)
 	if pass == "" {
 		pass, err = random.Words(3, "_")
 		if err != nil {
@@ -191,7 +195,7 @@ func PromptForSingleUser() error {
 
 // IsAuthenticatedBy --
 // Checks if a user IsAuthenticatedBy a password or not.
-func (u *User) IsAuthenticatedBy(password string) bool {
+func (u *Username) IsAuthenticatedBy(password string) bool {
 	user := AllUsers[*u]
 	if user == nil {
 		return false
@@ -207,7 +211,7 @@ func (u *User) IsAuthenticatedBy(password string) bool {
 
 // CreateNewUser with the given information
 func CreateNewUser(name, password string) error {
-	if AllUsers[User(name)] != nil {
+	if AllUsers[Username(name)] != nil {
 		return UserExists(name)
 	}
 	salt, err := RandomSalt()
@@ -221,11 +225,9 @@ func CreateNewUser(name, password string) error {
 		KeyLength,
 		sha512.New,
 	)
-	token := AuthToken{
-		Token: tokenValue,
-		Salt:  salt[:],
-	}
-	AllUsers[User(name)] = &token
+	token := AuthToken{Salt: salt}
+	copy(token.Token[:], tokenValue)
+	AllUsers[Username(name)] = &token
 	return SyncAllUsers()
 }
 
