@@ -82,24 +82,19 @@ func SetExpiryDelay(dTime time.Duration) {
 }
 
 // NewSession returns a new random token.
-func NewSession() (string, error) {
-	s, err := newSession()
-	return string(s[:]), err
+func NewSession() string {
+	s := newSession()
+	return string(s[:])
 }
-func newSession() (Session, error) {
+func newSession() Session {
 	var token Session
 	for i := 0; i < sessionKeyLength; i++ {
 		token[i] = byte(random.Alphanumeric())
-
 	}
 	if token.CurrentlyExists() {
-		var err error
-		token, err = newSession()
-		if err != nil {
-			return nullSession, err
-		}
+		token = newSession()
 	}
 	AllSessions = append(AllSessions, token)
 	token.Expire()
-	return token, nil
+	return token
 }
