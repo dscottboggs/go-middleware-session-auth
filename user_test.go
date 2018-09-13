@@ -39,13 +39,13 @@ func TestToAndFromString(t *testing.T) {
 	auth := testvals[username]
 	test.Logf(
 		"Token: %v\nSalt: %v",
-		hex.EncodeToString(auth.Token),
-		hex.EncodeToString(auth.Salt))
+		hex.EncodeToString(auth.Token[:]),
+		hex.EncodeToString(auth.Salt[:]))
 	expectedStr := string(username) +
 		ColSeparator +
-		hex.EncodeToString(auth.Salt) +
+		hex.EncodeToString(auth.Salt[:]) +
 		ColSeparator +
-		hex.EncodeToString(auth.Token) +
+		hex.EncodeToString(auth.Token[:]) +
 		LineSeparator
 	test.Equals(expectedStr, ToString(testvals))
 	fromStr, err := FromStringToValues(expectedStr)
@@ -63,9 +63,9 @@ func TestToAndFromString(t *testing.T) {
 	_, err = FromStringToValues(
 		string(username) +
 			ColSeparator +
-			string(auth.Salt) +
+			string(auth.Salt[:]) +
 			ColSeparator +
-			hex.EncodeToString(auth.Token))
+			hex.EncodeToString(auth.Token[:]))
 	test.NotNil(
 		err,
 		"got nil error when passing malformed string to FromStringToValues",
@@ -73,9 +73,9 @@ func TestToAndFromString(t *testing.T) {
 	_, err = FromStringToValues(
 		string(username) +
 			ColSeparator +
-			hex.EncodeToString(auth.Salt) +
+			hex.EncodeToString(auth.Salt[:]) +
 			ColSeparator +
-			string(auth.Token))
+			string(auth.Token[:]))
 	test.NotNil(
 		err,
 		"got nil error when passing malformed string to FromStringToValues",
@@ -83,15 +83,15 @@ func TestToAndFromString(t *testing.T) {
 	_, err = FromStringToValues(
 		string(username) +
 			ColSeparator +
-			hex.EncodeToString(auth.Salt) +
+			hex.EncodeToString(auth.Salt[:]) +
 			ColSeparator +
-			hex.EncodeToString(auth.Token) +
+			hex.EncodeToString(auth.Token[:]) +
 			LineSeparator +
 			string(username) +
 			ColSeparator +
-			hex.EncodeToString(auth.Salt) +
+			hex.EncodeToString(auth.Salt[:]) +
 			ColSeparator +
-			hex.EncodeToString(auth.Token))
+			hex.EncodeToString(auth.Token[:]))
 	test.NotNil(
 		err,
 		"got nil error when passing malformed string to FromStringToValues",

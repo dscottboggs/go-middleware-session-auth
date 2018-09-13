@@ -129,7 +129,7 @@ func TestSignIn(t *testing.T) {
 		SignIn(rec, req)
 		res := rec.Result()
 		test.Equals(
-			http.StatusMovedPermanently,
+			http.StatusTemporaryRedirect,
 			res.StatusCode,
 			"got status code %d from SignIn, expected 301",
 			res.StatusCode,
