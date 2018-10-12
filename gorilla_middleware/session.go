@@ -71,7 +71,7 @@ func init() {
 						)
 					}
 					if i > cap(sessionKey) {
-						sessionKey = append(session_key, byte(num.Int64()))
+						sessionKey = append(sessionKey, byte(num.Int64()))
 					} else {
 						sessionKey[i] = byte(num.Int64())
 					}
@@ -134,9 +134,13 @@ func SessionAuthenticationMiddleware(next http.HandlerFunc) http.HandlerFunc {
 		LoginHandler(w, r)
 	})
 }
+func noSessionHandler(
+	w http.ResponseWriter, r *http.Request, next http.HandlerFunc,
+) {
+	SignInHandler(SessionAuthentication(next), LoginHandler)
+}
 
 func SessionAuthentication(next http.HandlerFunc) http.HandlerFunc {
-	noSessionHandler := SignInHandler(SessionAuthentication(next), LoginHandler)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		session, err := store.Get(r, SessionTokenCookie)
 		if err != nil {
@@ -145,7 +149,7 @@ func SessionAuthentication(next http.HandlerFunc) http.HandlerFunc {
 				r.URL.String(),
 				err,
 			)
-			noSessionHandler(w, r)
+			noSessionHandler(w, r, next)
 			return
 		}
 		token := session.Values[UserAuthSessionKey]
@@ -153,6 +157,6 @@ func SessionAuthentication(next http.HandlerFunc) http.HandlerFunc {
 			next(w, r)
 			return
 		}
-		noSessionHandler(w, r)
+		noSessionHandler(w, r, next)
 	})
 }

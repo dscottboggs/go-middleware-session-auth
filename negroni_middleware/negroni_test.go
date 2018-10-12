@@ -221,3 +221,42 @@ func TestSession(t *testing.T) {
 		})
 	})
 }
+
+func TestFullFlow(t *testing.T) {
+	test := attest.NewTest(t)
+	// Sign the user in
+	unAuthorizedCallbackCalled = false
+	authorizedCallbackCalled = false
+	rec, req := test.NewRecorder(
+		fmt.Sprintf(
+			"/login?user=%s&token=%s",
+			url.QueryEscape(testUsername),
+			url.QueryEscape(testPassword),
+		),
+	)
+	si := NewSignIn().
+		WithSpecifiedKey(key).
+		WhenUnauthorized(unAuthorizedCallback)
+	sh := SessionAuth()
+	sh.LoginHandler = http.HandlerFunc(func(r http.ResponseWriter, w *http.Request) {
+		si.ServeHTTP(w, r, sh.LoginHandler)
+	})
+
+	if !authenticatedCallbackCalled {
+		test.Error(`the "authenticated" callback was not called.`)
+	}
+	if unAuthorizedCallbackCalled {
+		test.Error(`the "unauthorized" callback was called.`)
+	}
+	// check the response
+	res = rec.Result()
+	test.Equals(http.StatusOK, res.StatusCode)
+	body = test.EatError(ioutil.ReadAll(res.Body)).([]byte)
+	if len(body) == len(response) {
+		for i, b := range response {
+			test.Equals(body[i], b)
+		}
+	} else {
+		test.Errorf(`got unexpected body "%s"`, string(body))
+	}
+}

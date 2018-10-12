@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"testing"
@@ -67,4 +68,45 @@ func TestSesssionAuthenticationMiddleware(t *testing.T) {
 		test.Equals(http.StatusTemporaryRedirect, res.StatusCode)
 		test.Equals("/login", test.EatError(res.Location()).(*url.URL).Path)
 	})
+}
+
+func TestOneShotFullFlow(t *testing.T) {
+	var (
+		nextHasBeenCalled, loginHandlerHasBeenCalled bool
+		handler                                      = SessionAuthentication(
+			http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				nextHasBeenCalled = true
+				w.Write(response)
+			}),
+		)
+		reset = func() {
+			nextHasBeenCalled = false
+			loginHandlerHasBeenCalled = false
+		}
+	)
+	LoginHandler = http.HandlerFunc(
+		func(w http.ResponseWriter, r *http.Request) {
+			loginHandlerHasBeenCalled = true
+			w.Write(response)
+		},
+	)
+	t.Run("with no authentication provided", func(t *testing.T) {
+		test := attest.New(t)
+		reset()
+		rec, req := test.NewRecorder()
+		handler(rec, req)
+		res := rec.Result()
+		if !loginHandlerHasBeenCalled {
+			t.Error(`the "login" callback was not called`)
+		}
+		if nextHasBeenCalled {
+			t.Error(`the "next" callback was called`)
+		}
+		test.Equals(http.StatusOK, res.StatusCode)
+		body := test.EatError(ioutil.ReadAll(res.Body)).([]byte)
+		for i, b := range body {
+			test.Equals(response[i], b)
+		}
+	})
+
 }
