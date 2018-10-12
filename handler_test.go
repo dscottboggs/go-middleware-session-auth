@@ -18,7 +18,7 @@ func TestIsAllowed(t *testing.T) {
 	}
 	test.Run("valid session", func(st *testing.T) {
 		subtest := attest.NewTest(st)
-		rec, req := subtest.NewRecorder("/")
+		rec, req := subtest.NewRecorder()
 		req.AddCookie(&authCookie)
 		if !subtest.EatError(IsAllowed(rec, req)).(bool) {
 			subtest.Error("request is not allowed\n")
@@ -26,7 +26,7 @@ func TestIsAllowed(t *testing.T) {
 	})
 	test.Run("without session cookie", func(st *testing.T) {
 		subtest := attest.NewTest(t)
-		rec, req := subtest.NewRecorder("/")
+		rec, req := subtest.NewRecorder()
 		ok, err := IsAllowed(rec, req)
 		subtest.NotNil(
 			err,
