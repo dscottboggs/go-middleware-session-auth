@@ -69,7 +69,7 @@ func TestSignInHandler(t *testing.T) {
 				url.QueryEscape(testPassword),
 			),
 		)
-		SignInHandler(authorizedCallback, unAuthorizedCallback)(rec, req)
+		signInHandler(authorizedCallback, unAuthorizedCallback)(rec, req)
 		if unAuthorizedCallbackCalled {
 			test.Error(`the "unauthorized" callback was called.`)
 		}
@@ -93,7 +93,7 @@ func TestSignInHandler(t *testing.T) {
 		unAuthorizedCallbackCalled = false
 		authorizedCallbackCalled = false
 		rec, req := test.NewRecorder()
-		SignInHandler(authorizedCallback, unAuthorizedCallback)(rec, req)
+		signInHandler(authorizedCallback, unAuthorizedCallback)(rec, req)
 		if !unAuthorizedCallbackCalled {
 			test.Error(`the "unauthorized" callback was not called.`)
 		}
@@ -118,7 +118,7 @@ func TestSignInHandler(t *testing.T) {
 				url.QueryEscape("invalid password"),
 			),
 		)
-		SignInHandler(authorizedCallback, unAuthorizedCallback)(rec, req)
+		signInHandler(authorizedCallback, unAuthorizedCallback)(rec, req)
 		if !unAuthorizedCallbackCalled {
 			test.Error(`the "unauthorized" callback was not called.`)
 		}
@@ -132,64 +132,4 @@ func TestSignInHandler(t *testing.T) {
 			test.Equals(response[i], b)
 		}
 	})
-}
-
-func TestFullFlow(t *testing.T) {
-	test := attest.NewTest(t)
-	// Sign the user in
-	unAuthorizedCallbackCalled = false
-	authorizedCallbackCalled = false
-	rec, req := test.NewRecorder(
-		fmt.Sprintf(
-			"/login?user=%s&token=%s",
-			url.QueryEscape(testUsername),
-			url.QueryEscape(testPassword),
-		),
-	)
-	SignInHandler(authorizedCallback, unAuthorizedCallback)(rec, req)
-	if unAuthorizedCallbackCalled {
-		test.Error(`the "unauthorized" callback was called.`)
-	}
-	if !authorizedCallbackCalled {
-		test.Error(`the "authorized" callback was not called.`)
-	}
-	res := rec.Result()
-	test.Equals(http.StatusOK, res.StatusCode)
-	body := test.EatError(ioutil.ReadAll(res.Body)).([]byte)
-	for i, b := range body {
-		test.Equals(response[i], b)
-	}
-	// get the token from the session on the recently completed request
-	sesh, err := store.Get(req, SessionTokenCookie)
-	test.Handle(err, "error getting session %v", err)
-	token := sesh.Values[UserAuthSessionKey]
-	test.NotNil(token, "got nil token from session after sign in")
-	test.TypeIs("string", token)
-	// make an authenticated request
-	authenticatedCallbackCalled := false
-	authenticatedCallback := http.HandlerFunc(
-		func(w http.ResponseWriter, r *http.Request) {
-			authenticatedCallbackCalled = true
-			w.Write(response)
-		},
-	)
-	rec, req = test.NewRecorder()
-	// check the cookie presence
-	sesh, err = store.Get(req, SessionTokenCookie)
-	sesh.Values[UserAuthSessionKey] = token
-	SessionAuthenticationMiddleware(authenticatedCallback)(rec, req)
-	if !authenticatedCallbackCalled {
-		test.Error(`the "authenticated" callback was not called.`)
-	}
-	// check the response
-	res = rec.Result()
-	test.Equals(http.StatusOK, res.StatusCode)
-	body = test.EatError(ioutil.ReadAll(res.Body)).([]byte)
-	if len(body) == len(response) {
-		for i, b := range response {
-			test.Equals(body[i], b)
-		}
-	} else {
-		test.Errorf(`got unexpected body "%s"`, string(body))
-	}
 }

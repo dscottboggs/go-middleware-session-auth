@@ -7,7 +7,7 @@ import (
 	auth "github.com/dscottboggs/go-middleware-session-auth"
 )
 
-func SignInHandler(authorized, unauthorized http.HandlerFunc) http.HandlerFunc {
+func signInHandler(authorized, unauthorized http.HandlerFunc) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var (
 			user auth.Username

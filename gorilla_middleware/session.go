@@ -44,14 +44,16 @@ func init() {
 		keyString := os.Getenv("go_middleware_session_key")
 		if keyString == "" {
 			// try default loc.
-			sessionKey, err := ioutil.ReadFile(defaultSessionKeyLocation)
+			var err error
+			sessionKey, err = ioutil.ReadFile(defaultSessionKeyLocation)
 			if os.IsNotExist(err) {
 				// check for config folder
-				if _, err := os.Stat(defaultSessionKeyLocation); os.IsNotExist(err) {
+				if _, err = os.Stat(defaultSessionKeyLocation); os.IsNotExist(err) {
 					os.Mkdir(defaultConfigDir, os.ModeDir|os.FileMode(0755))
 				}
+				var keyFile *os.File
 				// write new key to the default location and use that
-				keyFile, err := os.Create(defaultSessionKeyLocation)
+				keyFile, err = os.Create(defaultSessionKeyLocation)
 				if err != nil {
 					log.Fatalf(
 						"couldn't find a session key or create one at the default "+
@@ -60,8 +62,9 @@ func init() {
 						err,
 					)
 				}
+				var num *big.Int
 				for i := 0; i < 32; /* 256 bits */ i++ {
-					num, err := rand.Int(rand.Reader, byteSize)
+					num, err = rand.Int(rand.Reader, byteSize)
 					if err != nil {
 						// this seriously needs to break everything if it
 						// doesn't work
@@ -110,36 +113,17 @@ func init() {
 	)
 }
 
-// SessionAuthenticationMiddleware -- the middleware function that should be
-// applied to a router for endpoints which require authentication.
-func SessionAuthenticationMiddleware(next http.HandlerFunc) http.HandlerFunc {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		session, err := store.Get(r, SessionTokenCookie)
-		if err != nil {
-			log.Printf(
-				"error getting cookie for %s: %v\n",
-				r.URL.String(),
-				err,
-			)
-			LoginHandler(w, r)
-			return
-		}
-
-		token := session.Values[UserAuthSessionKey]
-		if token != nil && auth.HasSession(token.(string)) {
-			next(w, r)
-			return
-		}
-		log.Printf("authentication unsuccessful for '%s'\n", r.URL.RawPath)
-		LoginHandler(w, r)
-	})
-}
 func noSessionHandler(
 	w http.ResponseWriter, r *http.Request, next http.HandlerFunc,
 ) {
-	SignInHandler(SessionAuthentication(next), LoginHandler)
+	signInHandler(SessionAuthentication(next), LoginHandler)(w, r)
 }
 
+// SessionAuthentication returns a middleware which handles sign-in and session
+// authentication on all endpoints. Usage:
+//     router.Use(gorilla_middleware.SessionAuthentication)
+//     gorilla_middleware.LoginHandler = renderLoginPage
+// And that's it.
 func SessionAuthentication(next http.HandlerFunc) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		session, err := store.Get(r, SessionTokenCookie)

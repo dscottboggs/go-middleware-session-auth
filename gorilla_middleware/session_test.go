@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -18,7 +19,7 @@ func TestSesssionAuthenticationMiddleware(t *testing.T) {
 		test.Handle(err)
 		session.Values[UserAuthSessionKey] = auth.NewSession()
 		var nextHasBeenCalled bool
-		SessionAuthenticationMiddleware(
+		SessionAuthentication(
 			http.HandlerFunc(
 				func(arg1 http.ResponseWriter, arg2 *http.Request) {
 					nextHasBeenCalled = true
@@ -36,7 +37,7 @@ func TestSesssionAuthenticationMiddleware(t *testing.T) {
 		test.Handle(err)
 		session.Values[UserAuthSessionKey] = "invalid token"
 		var nextHasBeenCalled bool
-		SessionAuthenticationMiddleware(
+		SessionAuthentication(
 			http.HandlerFunc(
 				func(arg1 http.ResponseWriter, arg2 *http.Request) {
 					nextHasBeenCalled = true
@@ -54,7 +55,7 @@ func TestSesssionAuthenticationMiddleware(t *testing.T) {
 		test := attest.New(t)
 		rec, req := test.NewRecorder()
 		var nextHasBeenCalled bool
-		SessionAuthenticationMiddleware(
+		SessionAuthentication(
 			http.HandlerFunc(
 				func(arg1 http.ResponseWriter, arg2 *http.Request) {
 					nextHasBeenCalled = true
@@ -108,5 +109,49 @@ func TestOneShotFullFlow(t *testing.T) {
 			test.Equals(response[i], b)
 		}
 	})
-
+	t.Run("with valid login but no session", func(t *testing.T) {
+		test := attest.NewTest(t)
+		reset()
+		rec, req := test.NewRecorder(fmt.Sprintf(
+			`/test?user=%s&token=%s`,
+			url.QueryEscape(testUsername),
+			url.QueryEscape(testPassword),
+		))
+		handler(rec, req)
+		res := rec.Result()
+		if loginHandlerHasBeenCalled {
+			t.Error(`the "login" callback was called`)
+		}
+		if !nextHasBeenCalled {
+			t.Error(`the "next" callback was not called`)
+		}
+		test.Equals(http.StatusOK, res.StatusCode)
+		body := test.EatError(ioutil.ReadAll(res.Body)).([]byte)
+		for i, b := range body {
+			test.Equals(response[i], b)
+		}
+	})
+	t.Run("with valid session", func(t *testing.T) {
+		test := attest.NewTest(t)
+		reset()
+		rec, req := test.NewRecorder()
+		token := auth.NewSession()
+		sesh, err := store.Get(req, SessionTokenCookie)
+		test.Handle(err)
+		sesh.Values[UserAuthSessionKey] = token
+		sesh.Save(req, rec)
+		handler(rec, req)
+		res := rec.Result()
+		if loginHandlerHasBeenCalled {
+			t.Error(`the "login" callback was called`)
+		}
+		if !nextHasBeenCalled {
+			t.Error(`the "next" callback was not called`)
+		}
+		test.Equals(http.StatusOK, res.StatusCode)
+		body := test.EatError(ioutil.ReadAll(res.Body)).([]byte)
+		for i, b := range body {
+			test.Equals(response[i], b)
+		}
+	})
 }
