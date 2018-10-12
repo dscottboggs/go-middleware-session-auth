@@ -34,24 +34,24 @@ const (
 	SessionTokenCookie = "session_token"
 	// UserAuthSessionKey -- the key that the auth token is referenced by in the
 	// session
-	UserAuthSessionKey = "user_auth_session_key"
+	UserAuthSessionKey = "user_auth_sessionKey"
 )
 
 func init() {
-	session_key_file := os.Getenv("go_middleware_session_key_file")
-	var session_key []byte
-	if session_key_file == "" {
-		sk_str := os.Getenv("go_middleware_session_key")
-		if sk_str == "" {
+	sessionKeyFile := os.Getenv("go_middleware_session_key_file")
+	var sessionKey []byte
+	if sessionKeyFile == "" {
+		keyString := os.Getenv("go_middleware_session_key")
+		if keyString == "" {
 			// try default loc.
-			session_key, err := ioutil.ReadFile(defaultSessionKeyLocation)
+			sessionKey, err := ioutil.ReadFile(defaultSessionKeyLocation)
 			if os.IsNotExist(err) {
 				// check for config folder
 				if _, err := os.Stat(defaultSessionKeyLocation); os.IsNotExist(err) {
 					os.Mkdir(defaultConfigDir, os.ModeDir|os.FileMode(0755))
 				}
 				// write new key to the default location and use that
-				sk_file, err := os.Create(defaultSessionKeyLocation)
+				keyFile, err := os.Create(defaultSessionKeyLocation)
 				if err != nil {
 					log.Fatalf(
 						"couldn't find a session key or create one at the default "+
@@ -70,13 +70,13 @@ func init() {
 							err,
 						)
 					}
-					if i > cap(session_key) {
-						session_key = append(session_key, byte(num.Int64()))
+					if i > cap(sessionKey) {
+						sessionKey = append(session_key, byte(num.Int64()))
 					} else {
-						session_key[i] = byte(num.Int64())
+						sessionKey[i] = byte(num.Int64())
 					}
 				}
-				_, err = sk_file.Write(session_key)
+				_, err = keyFile.Write(sessionKey)
 				if err != nil {
 					log.Fatalf(
 						"couldn't find a session key or create one at the default "+
@@ -93,16 +93,16 @@ func init() {
 				)
 			}
 		} else {
-			session_key = []byte(sk_str)
+			sessionKey = []byte(keyString)
 		}
 	} else {
 		var err error
-		session_key, err = ioutil.ReadFile(session_key_file)
+		sessionKey, err = ioutil.ReadFile(sessionKeyFile)
 		if err != nil && !os.IsNotExist(err) {
-			log.Fatalf(`error reading file at "%s": %v`, session_key_file, err)
+			log.Fatalf(`error reading file at "%s": %v`, sessionKeyFile, err)
 		}
 	}
-	store = sessions.NewCookieStore(session_key)
+	store = sessions.NewCookieStore(sessionKey)
 	LoginHandler = http.HandlerFunc(
 		func(w http.ResponseWriter, r *http.Request) {
 			http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
@@ -132,5 +132,27 @@ func SessionAuthenticationMiddleware(next http.HandlerFunc) http.HandlerFunc {
 		}
 		log.Printf("authentication unsuccessful for '%s'\n", r.URL.RawPath)
 		LoginHandler(w, r)
+	})
+}
+
+func SessionAuthentication(next http.HandlerFunc) http.HandlerFunc {
+	noSessionHandler := SignInHandler(SessionAuthentication(next), LoginHandler)
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		session, err := store.Get(r, SessionTokenCookie)
+		if err != nil {
+			log.Printf(
+				"error getting cookie for %s: %v\n",
+				r.URL.String(),
+				err,
+			)
+			noSessionHandler(w, r)
+			return
+		}
+		token := session.Values[UserAuthSessionKey]
+		if token != nil && auth.HasSession(token.(string)) {
+			next(w, r)
+			return
+		}
+		noSessionHandler(w, r)
 	})
 }
