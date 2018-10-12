@@ -35,7 +35,7 @@ func SignInHandler(authorized, unauthorized http.HandlerFunc) http.HandlerFunc {
 		session.Values[UserAuthSessionKey] = auth.NewSession()
 		if err = session.Save(r, w); err != nil {
 			fmt.Printf(
-				"user %s was successfully authenticated, but error %v "+
+				"ERROR: user %s was successfully authenticated, but error %v "+
 					"occurred trying to get the session\n",
 				user,
 				err,

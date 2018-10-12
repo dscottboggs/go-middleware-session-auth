@@ -3,12 +3,14 @@ package negroni_middleware
 import (
 	"crypto/rand"
 	"encoding/gob"
+	"fmt"
 	"log"
 	"math/big"
 	"net/http"
 	"os"
 	"path"
 
+	auth "github.com/dscottboggs/go-middleware-session-auth"
 	"github.com/gorilla/sessions"
 )
 
@@ -27,51 +29,162 @@ var (
 		"go-middleware-session-auth",
 	)
 	defaultSessionKeyLocation = path.Join(defaultConfigDir, "session.key")
-	bigInteger                = big.NewInt(1<<63 - 1)
-	byteSize                  = big.NewInt(8)
+	byteSize                  = big.NewInt(1 << 8)
+	sessionStore              *sessions.CookieStore
 )
 
-type NegroniSession struct {
-	store        *sessions.CookieStore
-	sessionKey   []byte
+type signIn struct {
+	unauthorizedHandler http.HandlerFunc
+}
+
+func (this *signIn) ServeHTTP(
+	w http.ResponseWriter, r *http.Request, next http.HandlerFunc,
+) {
+	if sessionStore == nil {
+		log.Fatal(
+			"session store has not been set up. Call one of the " +
+				"{Key,Keyfile,ForceNewKeyfile}Session() initializer functions")
+	}
+	var (
+		user auth.Username
+		pass string
+	)
+	user = auth.Username(r.FormValue("user")) // r.FormValue accepts post
+	pass = r.FormValue("token")               // form or URL queries
+	if !user.IsAuthenticatedBy(pass) {
+		fmt.Printf("user %s failed to be authenticated with %s\n", user, pass)
+		this.unauthorizedHandler(w, r)
+		return
+	}
+	session, err := sessionStore.Get(r, SessionTokenCookie)
+	if err != nil {
+		fmt.Printf(
+			"ERROR: user %s was successfully authenticated, but error %v "+
+				"occurred trying to get the session\n",
+			user,
+			err,
+		)
+		// TODO perhaps do something different here?
+		this.unauthorizedHandler(w, r)
+		return
+	}
+	session.Values[UserAuthSessionKey] = auth.NewSession()
+	if err = session.Save(r, w); err != nil {
+		fmt.Printf(
+			"ERROR: user %s was successfully authenticated, but error %v "+
+				"occurred trying to get the session\n",
+			user,
+			err,
+		)
+		// TODO perhaps do something different here?
+		this.unauthorizedHandler(w, r)
+		return
+	}
+	session.Save(r, w)
+	next(w, r)
+}
+
+type sessionSettingsChainer struct{}
+
+func (this *sessionSettingsChainer) WithKeyfile(
+	keyfile string,
+) *handlerSettingsChainer {
+	keys, err := readKeyFrom(keyfile)
+	if err != nil {
+		keys = [][]byte{generateKey()}
+		writeKeys(keyfile, keys...)
+	}
+	sessionStore = sessions.NewCookieStore(keys...)
+	return &handlerSettingsChainer{}
+}
+
+func (this *sessionSettingsChainer) ForceNewKeyWithKeyfile(
+	keyfile string,
+) *handlerSettingsChainer {
+	var keys [][]byte
+	oldkeys, err := readKeyFrom(keyfile)
+	if err != nil {
+		keys = [][]byte{generateKey()}
+	} else {
+		keys = append([][]byte{generateKey()}, oldkeys...)
+	}
+	writeKeys(keyfile, keys...)
+	sessionStore = sessions.NewCookieStore(keys...)
+	return &handlerSettingsChainer{}
+}
+
+func (this *sessionSettingsChainer) WithSpecifiedKey(
+	key []byte,
+) *handlerSettingsChainer {
+	sessionStore = sessions.NewCookieStore(key)
+	return &handlerSettingsChainer{}
+}
+
+type handlerSettingsChainer struct{}
+
+func (this *handlerSettingsChainer) WhenUnauthorized(
+	unauthorized http.HandlerFunc,
+) *signIn {
+	return &signIn{
+		unauthorizedHandler: unauthorized,
+	}
+}
+
+func NewSignIn() *sessionSettingsChainer {
+	return &sessionSettingsChainer{}
+}
+
+type Session struct {
 	LoginHandler http.HandlerFunc
 }
 
-func KeyfileSession(keyfile string, login http.HandlerFunc) *NegroniSession {
-	keys := readKeyFrom(keyfile)
-	sesh := NegroniSession{
-		sessionKey:   keys[0],
-		store:        sessions.NewCookieStore(keys...),
-		LoginHandler: login,
+func SessionAuth(login http.HandlerFunc) *Session {
+	return &Session{LoginHandler: login}
+}
+
+func (this *Session) ServeHTTP(
+	w http.ResponseWriter, r *http.Request, next http.HandlerFunc,
+) {
+	if sessionStore == nil {
+		log.Fatal(
+			"session store has not been set up. Call one of the " +
+				"{Key,Keyfile,ForceNewKeyfile}Session() initializer functions")
 	}
-
-	return &sesh
+	session, err := sessionStore.Get(r, SessionTokenCookie)
+	if err != nil {
+		log.Printf(
+			"error getting cookie for %s: %v\n",
+			r.URL.String(),
+			err,
+		)
+		this.LoginHandler(w, r)
+		return
+	}
+	token := session.Values[UserAuthSessionKey]
+	if token != nil && auth.HasSession(token.(string)) {
+		next(w, r)
+		return
+	}
+	log.Printf("authentication unsuccessful for '%s'\n", r.URL.RawPath)
+	this.LoginHandler(w, r)
 }
 
-func ForceNewKeyfileSession(keyfile string, login http.HandlerFunc) *NegroniSession {
-	oldKeys := readKeyFrom(keyfile)
-	newKey := generateKey()
-	writeKeys(keyfile, newKey, oldKeys...)
-}
-
-func readKeyFrom(keyfile string) [][]byte {
+func readKeyFrom(keyfile string) ([][]byte, error) {
 	keys := make([][]byte, 1)
 	file, err := os.Open(keyfile)
-	if err == nil {
-		gobreader := gob.NewDecoder(file)
-		err := gobreader.Decode(keys)
-		if err != nil {
-			log.Fatalf(
-				`error parsing gob for encryption keys at "%s": %v`,
-				keyfile,
-				err,
-			)
-		}
-	} else {
-		keys[0] = generateKey()
-		writeKeys(keyfile, keys...)
+	if err != nil {
+		return keys, err
 	}
-	return keys
+	gobreader := gob.NewDecoder(file)
+	err = gobreader.Decode(keys)
+	if err != nil {
+		log.Fatalf(
+			`error parsing gob for encryption keys at "%s": %v`,
+			keyfile,
+			err,
+		)
+	}
+	return keys, nil
 }
 
 // generate a cryptographically secure encryption key
