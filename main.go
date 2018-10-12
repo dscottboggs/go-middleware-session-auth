@@ -2,9 +2,12 @@ package auth
 
 import (
 	"fmt"
+	"io/ioutil"
+	"log"
 	"os"
 	"path"
 	"regexp"
+	"strings"
 )
 
 // package constants
@@ -55,25 +58,43 @@ func IsUnauthenticatedEndpoint(route string) bool {
 func init() {
 	AllUsers = make(map[Username]*Token)
 	wordListLocation = path.Join(ConfigLocation, "..", "wordlist.txt")
+	config_location_file := os.Getenv("go_middleware_session_keys_file")
+	if config_location_file != "" {
+		cfg_loc_bytes, err := ioutil.ReadFile(config_location_file)
+		if err != nil {
+			log.Fatalf(
+				"go_middleware_session_keys_file environment variable "+
+					`specified (as "%s"), but error "%v" when trying to read it`,
+				config_location_file,
+				err,
+			)
+		}
+		ConfigLocation = strings.TrimSpace(string(cfg_loc_bytes))
+		return
+	}
+	ConfigLocation := os.Getenv("go_middleware_session_keys")
+	if ConfigLocation == "" {
+		ConfigLocation = path.Join(
+			configDir(),
+			"auth.tokens",
+		)
+	}
 }
 
-/* Initialize global variables
- *
- * @param config [string]: the location where the authentication tokens should
- *		be stored, e.g. ~/.config/appname/auth.tokens
- * @param unauthenticatedEndpoints [strings]: the remaining arguments are
- *		regular expressions to be matched against for permissive endpoints.
- *		These endpoints will be allowed through the BasicAuth handler regardless
- *		of their actual basic authentication headers. This allows for, for
- *		example, an unauthenticated login page or some scripts to load
- *		regardless of authentication. The expression is concatenated with the
- *		character '^', making it only match the beginning of the route path.
- */
-func Initialize(config string, unauthenticatedEndpoints ...string) error {
-	if err := globals(config, unauthenticatedEndpoints...); err != nil {
-		return err
+func configDir() string {
+	configDirectory := os.Getenv("XGD_CONFIG_HOME")
+	if configDirectory != "" {
+		return configDirectory
 	}
-	return setupFile(config)
+	homedir := os.Getenv("HOME")
+	if homedir == "" {
+		log.Fatal("Couldn't find home directory!")
+	}
+	return path.Join(
+		homedir,
+		".config",
+		"go-middleware-session-auth",
+	)
 }
 
 // FirstRun Initializes the global varirables, creates a new user, then syncs
