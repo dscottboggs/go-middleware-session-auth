@@ -14,13 +14,13 @@ import (
 )
 
 var (
-	store     *sessions.CookieStore
-	configDir = path.Join(
+	store            *sessions.CookieStore
+	defaultConfigDir = path.Join(
 		os.Getenv("HOME"),
 		".config",
 		"go-middleware-session-auth",
 	)
-	defaultSessionKeyLocation = path.Join(configDir, "session.key")
+	defaultSessionKeyLocation = path.Join(defaultConfigDir, "session.key")
 	bigInteger                = big.NewInt(1<<63 - 1)
 	byteSize                  = big.NewInt(8)
 	// LoginHandler --
@@ -48,7 +48,7 @@ func init() {
 			if os.IsNotExist(err) {
 				// check for config folder
 				if _, err := os.Stat(defaultSessionKeyLocation); os.IsNotExist(err) {
-					os.Mkdir(configDir, os.ModeDir|os.FileMode(0755))
+					os.Mkdir(defaultConfigDir, os.ModeDir|os.FileMode(0755))
 				}
 				// write new key to the default location and use that
 				sk_file, err := os.Create(defaultSessionKeyLocation)
@@ -61,13 +61,20 @@ func init() {
 					)
 				}
 				for i := 0; i < 32; /* 256 bits */ i++ {
-					num, _ := rand.Int(rand.Reader, byteSize)
+					num, err := rand.Int(rand.Reader, byteSize)
+					if err != nil {
+						// this seriously needs to break everything if it
+						// doesn't work
+						log.Fatalf(
+							"failed to initialize random number generator: %v",
+							err,
+						)
+					}
 					if i > cap(session_key) {
 						session_key = append(session_key, byte(num.Int64()))
 					} else {
 						session_key[i] = byte(num.Int64())
 					}
-
 				}
 				_, err = sk_file.Write(session_key)
 				if err != nil {
