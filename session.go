@@ -8,7 +8,7 @@ import (
 
 const sessionKeyLength = 1 << 7
 
-var expiryDelay = 24 * 90 * time.Hour
+var expiryDelay = 24 * 30 * time.Hour
 
 // The Session cookie store
 type Session [sessionKeyLength]byte

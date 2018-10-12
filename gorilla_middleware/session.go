@@ -1,4 +1,4 @@
-package middleware
+package gorilla_middleware
 
 import (
 	"crypto/rand"
