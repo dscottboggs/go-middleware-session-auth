@@ -19,7 +19,7 @@ func TestSesssionAuthenticationMiddleware(t *testing.T) {
 		test.Handle(err)
 		session.Values[UserAuthSessionKey] = auth.NewSession()
 		var nextHasBeenCalled bool
-		SessionAuthentication(
+		sessionAuthentication(
 			http.HandlerFunc(
 				func(arg1 http.ResponseWriter, arg2 *http.Request) {
 					nextHasBeenCalled = true
@@ -37,7 +37,7 @@ func TestSesssionAuthenticationMiddleware(t *testing.T) {
 		test.Handle(err)
 		session.Values[UserAuthSessionKey] = "invalid token"
 		var nextHasBeenCalled bool
-		SessionAuthentication(
+		sessionAuthentication(
 			http.HandlerFunc(
 				func(arg1 http.ResponseWriter, arg2 *http.Request) {
 					nextHasBeenCalled = true
@@ -48,14 +48,19 @@ func TestSesssionAuthenticationMiddleware(t *testing.T) {
 			test.Error(`"next" was called!`)
 		}
 		res := rec.Result()
-		test.Equals(http.StatusTemporaryRedirect, res.StatusCode)
-		test.Equals("/login", test.EatError(res.Location()).(*url.URL).Path)
+		defer res.Body.Close()
+		test.Equals(http.StatusUnauthorized, res.StatusCode)
+		body := test.EatError(ioutil.ReadAll(res.Body)).([]byte)
+		test.Equals(
+			fmt.Sprintf("%d Unauthorized", http.StatusUnauthorized),
+			string(body),
+		)
 	})
 	t.Run("no session present", func(t *testing.T) {
 		test := attest.New(t)
 		rec, req := test.NewRecorder()
 		var nextHasBeenCalled bool
-		SessionAuthentication(
+		sessionAuthentication(
 			http.HandlerFunc(
 				func(arg1 http.ResponseWriter, arg2 *http.Request) {
 					nextHasBeenCalled = true
@@ -66,15 +71,20 @@ func TestSesssionAuthenticationMiddleware(t *testing.T) {
 			test.Error(`"next" was called!`)
 		}
 		res := rec.Result()
-		test.Equals(http.StatusTemporaryRedirect, res.StatusCode)
-		test.Equals("/login", test.EatError(res.Location()).(*url.URL).Path)
+		defer res.Body.Close()
+		test.Equals(http.StatusUnauthorized, res.StatusCode)
+		body := test.EatError(ioutil.ReadAll(res.Body)).([]byte)
+		test.Equals(
+			fmt.Sprintf("%d Unauthorized", http.StatusUnauthorized),
+			string(body),
+		)
 	})
 }
 
 func TestOneShotFullFlow(t *testing.T) {
 	var (
 		nextHasBeenCalled, loginHandlerHasBeenCalled bool
-		handler                                      = SessionAuthentication(
+		handler                                      = sessionAuthentication(
 			http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				nextHasBeenCalled = true
 				w.Write(response)
@@ -97,6 +107,7 @@ func TestOneShotFullFlow(t *testing.T) {
 		rec, req := test.NewRecorder()
 		handler(rec, req)
 		res := rec.Result()
+		defer res.Body.Close()
 		if !loginHandlerHasBeenCalled {
 			t.Error(`the "login" callback was not called`)
 		}
@@ -119,6 +130,7 @@ func TestOneShotFullFlow(t *testing.T) {
 		))
 		handler(rec, req)
 		res := rec.Result()
+		defer res.Body.Close()
 		if loginHandlerHasBeenCalled {
 			t.Error(`the "login" callback was called`)
 		}
@@ -142,6 +154,7 @@ func TestOneShotFullFlow(t *testing.T) {
 		sesh.Save(req, rec)
 		handler(rec, req)
 		res := rec.Result()
+		defer res.Body.Close()
 		if loginHandlerHasBeenCalled {
 			t.Error(`the "login" callback was called`)
 		}

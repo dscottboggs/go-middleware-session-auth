@@ -2,6 +2,7 @@ package gorilla_middleware
 
 import (
 	"crypto/rand"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"math/big"
@@ -108,7 +109,8 @@ func init() {
 	store = sessions.NewCookieStore(sessionKey)
 	LoginHandler = http.HandlerFunc(
 		func(w http.ResponseWriter, r *http.Request) {
-			http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
+			w.WriteHeader(http.StatusUnauthorized)
+			fmt.Fprintf(w, "%d Unauthorized", http.StatusUnauthorized)
 		},
 	)
 }
@@ -116,15 +118,10 @@ func init() {
 func noSessionHandler(
 	w http.ResponseWriter, r *http.Request, next http.HandlerFunc,
 ) {
-	signInHandler(SessionAuthentication(next), LoginHandler)(w, r)
+	signInHandler(sessionAuthentication(next), LoginHandler)(w, r)
 }
 
-// SessionAuthentication returns a middleware which handles sign-in and session
-// authentication on all endpoints. Usage:
-//     router.Use(gorilla_middleware.SessionAuthentication)
-//     gorilla_middleware.LoginHandler = renderLoginPage
-// And that's it.
-func SessionAuthentication(next http.HandlerFunc) http.HandlerFunc {
+func sessionAuthentication(next http.HandlerFunc) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		session, err := store.Get(r, SessionTokenCookie)
 		if err != nil {
@@ -143,4 +140,30 @@ func SessionAuthentication(next http.HandlerFunc) http.HandlerFunc {
 		}
 		noSessionHandler(w, r, next)
 	})
+}
+
+// SessionAuthentication returns a middleware which handles sign-in and session
+// authentication on all endpoints. Usage:
+// 	   // assuming you've written an http.HandlerFunc called renderLoginPage
+//     // which renders a login page
+//     router.Use(gorilla_middleware.SessionAuthentication(renderLoginPage))
+// or
+//     // to simply return "401 Unauthorized"
+//     router.Use(gorilla_middleware.SessionAuthentication())
+// And that's it.
+func SessionAuthentication(login ...http.HandlerFunc) func(http.HandlerFunc) http.HandlerFunc {
+	switch numLoginHandlers := len(login); numLoginHandlers {
+	case 0:
+		// do nothing -- use the default of simply returning "401 Unauthorized"
+	case 1:
+		LoginHandler = login[0]
+	default:
+		log.Printf(
+			"WARNING: %d login handlers specified, only the first will be used.\n",
+			numLoginHandlers,
+		)
+		LoginHandler = login[0]
+	}
+
+	return sessionAuthentication
 }
