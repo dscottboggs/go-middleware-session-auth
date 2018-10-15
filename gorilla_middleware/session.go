@@ -122,12 +122,15 @@ func init() {
 }
 
 func noSessionHandler(
-	w http.ResponseWriter, r *http.Request, next http.HandlerFunc,
+	w http.ResponseWriter, r *http.Request, next http.Handler,
 ) {
-	signInHandler(sessionAuthentication(next), LoginHandler)(w, r)
+	signInHandler(
+		sessionAuthentication(next).ServeHTTP,
+		LoginHandler,
+	)(w, r)
 }
 
-func sessionAuthentication(next http.HandlerFunc) http.HandlerFunc {
+func sessionAuthentication(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		session, err := store.Get(r, SessionTokenCookie)
 		if err != nil {
@@ -167,7 +170,7 @@ func sessionAuthentication(next http.HandlerFunc) http.HandlerFunc {
 //     // to simply return "401 Unauthorized"
 //     router.Use(gorilla_middleware.SessionAuthentication())
 // And that's it.
-func SessionAuthentication(login ...http.HandlerFunc) func(http.HandlerFunc) http.HandlerFunc {
+func SessionAuthentication(login ...http.HandlerFunc) mux.MiddlewareFunc {
 	switch numLoginHandlers := len(login); numLoginHandlers {
 	case 0:
 		// do nothing -- use the default of simply returning "401 Unauthorized"
@@ -181,5 +184,7 @@ func SessionAuthentication(login ...http.HandlerFunc) func(http.HandlerFunc) htt
 		LoginHandler = login[0]
 	}
 
-	return sessionAuthentication
+	return mux.MiddlewareFunc(sessionAuthentication)
+}
+
 }
