@@ -132,6 +132,10 @@ func noSessionHandler(
 
 func sessionAuthentication(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Get("logout") != "" {
+			deauthorize(w, r, next)
+			return
+		}
 		session, err := store.Get(r, SessionTokenCookie)
 		if err != nil {
 			log.Printf("error getting cookie for %s: %v\n", r.URL.String(), err)
@@ -187,4 +191,16 @@ func SessionAuthentication(login ...http.HandlerFunc) mux.MiddlewareFunc {
 	return mux.MiddlewareFunc(sessionAuthentication)
 }
 
+func deauthorize(w http.ResponseWriter, r *http.Request, next http.Handler) {
+	session, err := store.Get(r, SessionTokenCookie)
+	if err != nil {
+		noSessionHandler(w, r, next)
+	}
+	token := session.Values[UserAuthSessionKey]
+	if token == nil {
+		noSessionHandler(w, r, next)
+	}
+	seshToken := token.(auth.Session)
+	seshToken.Delete()
+	(*LogoutHandler)(w, r)
 }
