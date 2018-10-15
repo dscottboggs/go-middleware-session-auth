@@ -11,7 +11,7 @@ import (
 
 const (
 	// 128 bits
-	sessionKeyLength = 1 << 7
+	SessionKeyLength = 1 << 7
 	// one week in seconds
 	oneWeek = time.Second * 86400 * 7
 	// the maximum number of bits that can fit in an uint8
@@ -34,7 +34,7 @@ var (
 )
 
 // The Session cookie store
-type Session [sessionKeyLength]byte
+type Session [SessionKeyLength]byte
 
 type SessionMetadata struct {
 	Expiry time.Time
@@ -99,7 +99,7 @@ func NewSession() (Session, *SessionMetadata) {
 			Expiry: time.Now().Add(expiryDelay),
 		}
 	)
-	for i := 0; i < sessionKeyLength; i++ {
+	for i := 0; i < SessionKeyLength; i++ {
 		temp, err = rand.Int(rand.Reader, byteSize)
 		if err != nil {
 			log.Fatalf("error reading from random number generator! %v", err)
@@ -124,7 +124,7 @@ func SetCleanupInterval(interval time.Duration) {
 
 // sweep the AllSessions object and clean up any expired sessions
 func sweep() {
-	for {
+	for /*ever*/ {
 		select {
 		case <-sweepQuitter:
 			return

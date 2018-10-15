@@ -17,7 +17,8 @@ func TestSesssionAuthenticationMiddleware(t *testing.T) {
 		rec, req := test.NewRecorder()
 		session, err := store.Get(req, SessionTokenCookie)
 		test.Handle(err)
-		session.Values[UserAuthSessionKey] = auth.NewSession()
+		token, _ := auth.NewSession()
+		session.Values[UserAuthSessionKey] = token
 		var nextHasBeenCalled bool
 		sessionAuthentication(
 			http.HandlerFunc(
@@ -25,7 +26,7 @@ func TestSesssionAuthenticationMiddleware(t *testing.T) {
 					nextHasBeenCalled = true
 				},
 			),
-		)(rec, req)
+		).ServeHTTP(rec, req)
 		if !nextHasBeenCalled {
 			test.Error(`"next" was not called!`)
 		}
@@ -35,7 +36,12 @@ func TestSesssionAuthenticationMiddleware(t *testing.T) {
 		rec, req := test.NewRecorder()
 		session, err := store.Get(req, SessionTokenCookie)
 		test.Handle(err)
-		session.Values[UserAuthSessionKey] = "invalid token"
+		invalidToken, _ := auth.NewSession()
+		invalidToken.Delete()
+		if invalidToken.CurrentlyExists() {
+			t.Error("token existed after deletion")
+		}
+		session.Values[UserAuthSessionKey] = invalidToken
 		var nextHasBeenCalled bool
 		sessionAuthentication(
 			http.HandlerFunc(
@@ -43,7 +49,7 @@ func TestSesssionAuthenticationMiddleware(t *testing.T) {
 					nextHasBeenCalled = true
 				},
 			),
-		)(rec, req)
+		).ServeHTTP(rec, req)
 		if nextHasBeenCalled {
 			test.Error(`"next" was called!`)
 		}
@@ -66,7 +72,7 @@ func TestSesssionAuthenticationMiddleware(t *testing.T) {
 					nextHasBeenCalled = true
 				},
 			),
-		)(rec, req)
+		).ServeHTTP(rec, req)
 		if nextHasBeenCalled {
 			test.Error(`"next" was called!`)
 		}
@@ -89,7 +95,7 @@ func TestOneShotFullFlow(t *testing.T) {
 				nextHasBeenCalled = true
 				w.Write(response)
 			}),
-		)
+		).ServeHTTP
 		reset = func() {
 			nextHasBeenCalled = false
 			loginHandlerHasBeenCalled = false
@@ -147,7 +153,7 @@ func TestOneShotFullFlow(t *testing.T) {
 		test := attest.NewTest(t)
 		reset()
 		rec, req := test.NewRecorder()
-		token := auth.NewSession()
+		token, _ := auth.NewSession()
 		sesh, err := store.Get(req, SessionTokenCookie)
 		test.Handle(err)
 		sesh.Values[UserAuthSessionKey] = token

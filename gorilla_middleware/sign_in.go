@@ -32,7 +32,8 @@ func signInHandler(authorized, unauthorized http.HandlerFunc) http.HandlerFunc {
 			unauthorized(w, r)
 			return
 		}
-		session.Values[UserAuthSessionKey] = auth.NewSession()
+		token, _ := auth.NewSession()
+		session.Values[UserAuthSessionKey] = token
 		if err = session.Save(r, w); err != nil {
 			fmt.Printf(
 				"ERROR: user %s was successfully authenticated, but error %v "+

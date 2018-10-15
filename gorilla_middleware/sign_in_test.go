@@ -86,7 +86,7 @@ func TestSignInHandler(t *testing.T) {
 		test.Handle(err)
 		token := session.Values[UserAuthSessionKey]
 		test.NotNil(token, "got nil session key")
-		test.TypeIs("string", token)
+		test.TypeIs("auth.Session", token)
 	})
 	t.Run("no params present", func(st *testing.T) {
 		test := attest.NewTest(st)

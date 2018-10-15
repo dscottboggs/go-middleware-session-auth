@@ -2,6 +2,7 @@ package gorilla_middleware
 
 import (
 	"crypto/rand"
+	"encoding/gob"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -9,8 +10,10 @@ import (
 	"net/http"
 	"os"
 	"path"
+	"time"
 
 	auth "github.com/dscottboggs/go-middleware-session-auth"
+	"github.com/gorilla/mux"
 	"github.com/gorilla/sessions"
 )
 
@@ -27,7 +30,8 @@ var (
 	// LoginHandler --
 	// requests are sent to the LoginHandler if authentication fails. By
 	// default, it redirects to /login
-	LoginHandler http.HandlerFunc
+	LoginHandler  http.HandlerFunc
+	LogoutHandler = &LoginHandler
 )
 
 const (
@@ -36,9 +40,11 @@ const (
 	// UserAuthSessionKey -- the key that the auth token is referenced by in the
 	// session
 	UserAuthSessionKey = "user_auth_sessionKey"
+	oneWeek            = time.Second * 86400 * 7
 )
 
 func init() {
+	gob.Register(&auth.Session{})
 	sessionKeyFile := os.Getenv("go_middleware_session_key_file")
 	var sessionKey []byte
 	if sessionKeyFile == "" {
@@ -125,18 +131,28 @@ func sessionAuthentication(next http.HandlerFunc) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		session, err := store.Get(r, SessionTokenCookie)
 		if err != nil {
-			log.Printf(
-				"error getting cookie for %s: %v\n",
-				r.URL.String(),
-				err,
-			)
+			log.Printf("error getting cookie for %s: %v\n", r.URL.String(), err)
 			noSessionHandler(w, r, next)
 			return
 		}
 		token := session.Values[UserAuthSessionKey]
-		if token != nil && auth.HasSession(token.(string)) {
-			next(w, r)
-			return
+		if token != nil {
+			tkn := token.(auth.Session)
+			if metadata, exists := tkn.GetMetadata(); exists {
+				if metadata.Expiry.Unix() < time.Now().Unix() {
+					// session is due for expiry but hasn't been cleaned up yet
+					noSessionHandler(w, r, next)
+				} else if metadata.Expiry.Unix() < time.Now().Add(oneWeek).Unix() {
+					tkn, _ = auth.NewSession()
+					session.Values[UserAuthSessionKey] = tkn
+					session.Save(r, w)
+					next.ServeHTTP(w, r)
+					return
+				} else {
+					next.ServeHTTP(w, r)
+					return
+				}
+			}
 		}
 		noSessionHandler(w, r, next)
 	})
