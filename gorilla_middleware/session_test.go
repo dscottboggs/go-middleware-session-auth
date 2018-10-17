@@ -100,6 +100,22 @@ func TestOneShotFullFlow(t *testing.T) {
 			nextHasBeenCalled = false
 			loginHandlerHasBeenCalled = false
 		}
+		isAuthorized = func(t *testing.T, res *http.Response) {
+			if loginHandlerHasBeenCalled {
+				t.Error(`the "login" callback was called`)
+			}
+			if !nextHasBeenCalled {
+				t.Error(`the "next" callback was not called`)
+			}
+		}
+		isUnauthorized = func(t *testing.T, res *http.Response) {
+			if !loginHandlerHasBeenCalled {
+				t.Error(`the "login" callback was not called`)
+			}
+			if nextHasBeenCalled {
+				t.Error(`the "next" callback was called`)
+			}
+		}
 	)
 	LoginHandler = http.HandlerFunc(
 		func(w http.ResponseWriter, r *http.Request) {
@@ -114,12 +130,7 @@ func TestOneShotFullFlow(t *testing.T) {
 		handler(rec, req)
 		res := rec.Result()
 		defer res.Body.Close()
-		if !loginHandlerHasBeenCalled {
-			t.Error(`the "login" callback was not called`)
-		}
-		if nextHasBeenCalled {
-			t.Error(`the "next" callback was called`)
-		}
+		isUnauthorized(t, res)
 		test.Equals(http.StatusOK, res.StatusCode)
 		body := test.EatError(ioutil.ReadAll(res.Body)).([]byte)
 		for i, b := range body {
@@ -137,12 +148,7 @@ func TestOneShotFullFlow(t *testing.T) {
 		handler(rec, req)
 		res := rec.Result()
 		defer res.Body.Close()
-		if loginHandlerHasBeenCalled {
-			t.Error(`the "login" callback was called`)
-		}
-		if !nextHasBeenCalled {
-			t.Error(`the "next" callback was not called`)
-		}
+		isAuthorized(t, res)
 		test.Equals(http.StatusOK, res.StatusCode)
 		body := test.EatError(ioutil.ReadAll(res.Body)).([]byte)
 		for i, b := range body {
@@ -161,16 +167,51 @@ func TestOneShotFullFlow(t *testing.T) {
 		handler(rec, req)
 		res := rec.Result()
 		defer res.Body.Close()
-		if loginHandlerHasBeenCalled {
-			t.Error(`the "login" callback was called`)
-		}
-		if !nextHasBeenCalled {
-			t.Error(`the "next" callback was not called`)
-		}
+		isAuthorized(t, res)
 		test.Equals(http.StatusOK, res.StatusCode)
 		body := test.EatError(ioutil.ReadAll(res.Body)).([]byte)
 		for i, b := range body {
 			test.Equals(response[i], b)
 		}
+	})
+	t.Run("refresh flow", func(t *testing.T) {
+		test := attest.NewTest(t)
+		reset()
+		// run it with the session to get the cookie.
+		oldRec, oldReq := test.NewRecorder()
+		oldToken, _ := auth.NewSession()
+		oldSesh, err := store.Get(oldReq, SessionTokenCookie)
+		test.Handle(err)
+		oldSesh.Values[UserAuthSessionKey] = oldToken
+		oldSesh.Save(oldReq, oldRec)
+		handler(oldRec, oldReq)
+		res := oldRec.Result()
+		test.Equals(1, len(res.Cookies()))
+		oldSessionCookie := res.Cookies()[0]
+		test.Equals(http.StatusOK, res.StatusCode)
+		isAuthorized(t, res)
+		// expire the token
+		oldToken.ExpireIn(oneWeek - 1000)
+		// make the call again
+		newRec, newReq := test.NewRecorder()
+		newReq.AddCookie(oldSessionCookie)
+		sesh, err := store.Get(newReq, SessionTokenCookie)
+		test.Handle(err)
+		test.Equals(oldToken, *sesh.Values[UserAuthSessionKey].(*auth.Session))
+		sesh.Values[UserAuthSessionKey] = *sesh.Values[UserAuthSessionKey].(*auth.Session)
+		// sesh.Save(newReq, newRec)
+		handler(newRec, newReq)
+		newRes := newRec.Result()
+		test.Equals(http.StatusOK, newRes.StatusCode)
+		isAuthorized(t, newRes)
+		cookies := res.Cookies()
+		test.Equals(1, len(cookies))
+		newSesh, err := store.Get(newReq, SessionTokenCookie)
+		test.Handle(err)
+		test.NotEqual(
+			newSesh.Values[UserAuthSessionKey],
+			oldSesh.Values[UserAuthSessionKey],
+		)
+		test.NotEqual(oldSessionCookie.Value, cookies[0].Value)
 	})
 }

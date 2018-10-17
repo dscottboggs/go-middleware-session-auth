@@ -51,8 +51,7 @@ func init() {
 		keyString := os.Getenv("go_middleware_session_key")
 		if keyString == "" {
 			// try default loc.
-			var err error
-			sessionKey, err = ioutil.ReadFile(defaultSessionKeyLocation)
+			key, err := ioutil.ReadFile(defaultSessionKeyLocation)
 			if os.IsNotExist(err) {
 				// check for config folder
 				if _, err = os.Stat(defaultSessionKeyLocation); os.IsNotExist(err) {
@@ -61,6 +60,22 @@ func init() {
 				var keyFile *os.File
 				// write new key to the default location and use that
 				keyFile, err = os.Create(defaultSessionKeyLocation)
+				defer func() {
+					stat, statErr := os.Stat(defaultSessionKeyLocation)
+					closeErr := keyFile.Close()
+					if closeErr != nil || stat.Size() == 0 {
+						log.Fatalf("error: %v", closeErr)
+					}
+					if statErr != nil {
+						log.Fatalf("error: %v", statErr)
+					}
+					if stat.Size() == 0 {
+						log.Fatalf(
+							"error keyfile size is 0: %v",
+							defaultSessionKeyLocation,
+						)
+					}
+				}()
 				if err != nil {
 					log.Fatalf(
 						"couldn't find a session key or create one at the default "+
@@ -80,7 +95,7 @@ func init() {
 							err,
 						)
 					}
-					if i > cap(sessionKey) {
+					if i >= len(sessionKey) {
 						sessionKey = append(sessionKey, byte(num.Int64()))
 					} else {
 						sessionKey[i] = byte(num.Int64())
@@ -101,6 +116,8 @@ func init() {
 					defaultSessionKeyLocation,
 					err,
 				)
+			} else {
+				copy(sessionKey, key)
 			}
 		} else {
 			sessionKey = []byte(keyString)

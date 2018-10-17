@@ -56,10 +56,7 @@ func main() {
 		flag.Usage()
 		os.Exit(statusIncorrectUsage)
 	}
-	err := auth.Initialize(tokenLocation)
-	if err != nil {
-		log.Fatal(err)
-	}
+	auth.ConfigLocation = tokenLocation
 	switch actionString {
 	case "new", "create", "c", "add":
 		if err := auth.CreateNewUser(uname, pw); err != nil {
